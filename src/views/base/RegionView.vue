@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { h, ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
   NCard,
@@ -25,6 +26,7 @@ import { useBaseFarmerStore } from '@/stores/base/farmer'
 import { useFrontendPagination } from '@/composables/useFrontendPagination'
 import type { RegionRow } from '@/mock/base/region'
 
+const router = useRouter()
 const regionStore = useBaseRegionStore()
 const farmerStore = useBaseFarmerStore()
 const { tree } = storeToRefs(regionStore)
@@ -34,25 +36,20 @@ const message = useMessage()
 
 const keyword = ref('')
 
-function filterTree(rows: RegionRow[], q: string): RegionRow[] {
-  if (!q.trim()) return rows
+function townshipMatchesKeyword(tw: RegionRow, q: string): boolean {
+  if (!q.trim()) return true
   const lower = q.toLowerCase()
   const match = (r: RegionRow) =>
     r.name.toLowerCase().includes(lower) || r.code.includes(q) || (r.contact?.includes(q) ?? false)
-  const out: RegionRow[] = []
-  for (const r of rows) {
-    const kids = r.children ? filterTree(r.children, q) : []
-    if (match(r) || kids.length) {
-      out.push({
-        ...r,
-        children: kids.length ? kids : r.children,
-      })
-    }
+  if (match(tw)) return true
+  for (const v of tw.children ?? []) {
+    if (match(v)) return true
   }
-  return out
+  return false
 }
 
-const displayData = computed(() => filterTree(tree.value, keyword.value))
+/** 仅乡镇一级列表，行政村在子页面维护 */
+const displayData = computed(() => tree.value.filter((tw) => townshipMatchesKeyword(tw, keyword.value)))
 
 const rowTotal = computed(() => displayData.value.length)
 const { pagination, resetPage } = useFrontendPagination(rowTotal)
@@ -183,10 +180,10 @@ function confirmDelete(row: RegionRow) {
 
 const columns = computed<DataTableColumns<RegionRow>>(() => [
   {
-    title: '区划名称',
+    title: '乡镇名称',
     key: 'name',
-    tree: true,
-    minWidth: 200,
+    minWidth: 160,
+    ellipsis: { tooltip: true },
   },
   {
     title: '区划编码',
@@ -197,14 +194,8 @@ const columns = computed<DataTableColumns<RegionRow>>(() => [
     title: '类型',
     key: 'type',
     width: 100,
-    render(row) {
-      const map = { township: '乡镇', village: '行政村' } as const
-      const type = row.type
-      return h(
-        NTag,
-        { size: 'small', type: type === 'township' ? 'info' : 'success', bordered: false },
-        { default: () => map[type] },
-      )
+    render() {
+      return h(NTag, { size: 'small', type: 'info', bordered: false }, { default: () => '乡镇' })
     },
   },
   {
@@ -214,20 +205,18 @@ const columns = computed<DataTableColumns<RegionRow>>(() => [
     ellipsis: { tooltip: true },
   },
   {
-    title: '村民小组',
-    key: 'groupNames',
-    minWidth: 200,
-    ellipsis: { tooltip: true },
+    title: '行政村数',
+    key: 'vCnt',
+    width: 100,
+    align: 'center',
     render(row) {
-      if (row.type === 'village') return row.groupNames ?? '—'
-      const n = row.children?.length ?? 0
-      return n ? `辖 ${n} 个行政村` : '—'
+      return row.children?.length ?? 0
     },
   },
   {
     title: '操作',
     key: 'actions',
-    width: 160,
+    width: 220,
     fixed: 'right',
     render(row) {
       return h(
@@ -235,6 +224,17 @@ const columns = computed<DataTableColumns<RegionRow>>(() => [
         { size: 10, align: 'center', wrap: false },
         {
           default: () => [
+            h(
+              NButton,
+              {
+                text: true,
+                type: 'info',
+                size: 'small',
+                onClick: () =>
+                  router.push({ name: 'base-region-township', params: { townshipId: row.id } }),
+              },
+              { default: () => '行政村' },
+            ),
             h(
               NButton,
               {
@@ -275,7 +275,7 @@ function handleSearch() {
 <template>
   <NCard class="page-card page-card--fill" title="区划管理" :bordered="false">
     <template #header-extra>
-      <span class="page-card__hint">日喀则市南木林县 · 乡镇—行政村两级（村民小组见列表列）</span>
+      <span class="page-card__hint">日喀则市南木林县 · 乡镇列表；行政村请进入子页面维护</span>
     </template>
 
     <div class="base-page base-page--table">
@@ -309,10 +309,9 @@ function handleSearch() {
           :row-key="(row) => row.id"
           :bordered="false"
           :single-line="false"
-          :scroll-x="900"
+          :scroll-x="1000"
           :pagination="pagination"
           pagination-behavior-on-filter="first"
-          default-expand-all
         />
       </div>
     </div>

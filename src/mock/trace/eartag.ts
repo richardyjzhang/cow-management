@@ -12,22 +12,51 @@ export interface EartagRow {
   remark?: string
 }
 
-export const mockEartags: EartagRow[] = [
-  {
-    id: 'et-001',
-    earTag: 'NML-2026-0001',
-    cowId: 'cw-001',
-    farmerName: '扎西顿珠',
-    status: '已绑定',
-    bindDate: '2026-01-08',
-  },
-  {
-    id: 'et-002',
-    earTag: 'NML-2026-0009',
-    cowId: '',
-    farmerName: '',
-    status: '在库',
-    bindDate: '',
-    remark: '待发放',
-  },
+const statuses: EartagStatus[] = [
+  '已绑定',
+  '已绑定',
+  '已绑定',
+  '已绑定',
+  '已绑定',
+  '已绑定',
+  '已绑定',
+  '已绑定',
+  '已绑定',
+  '已绑定',
+  '已绑定',
+  '已绑定',
+  '已绑定',
+  '已绑定',
+  '在库',
 ]
+
+const farmers = [
+  '扎西顿珠',
+  '扎西顿珠',
+  '次仁旺姆',
+  '洛桑平措',
+  '白玛央金',
+  '顿珠次仁',
+  '格桑拉姆',
+  '索朗多吉',
+  '尼玛顿珠',
+  '央金卓嘎',
+  '平措罗布',
+  '德吉拉姆',
+  '多吉次仁',
+  '拉姆玉珍',
+  '',
+]
+
+export const mockEartags: EartagRow[] = Array.from({ length: 15 }, (_, i) => {
+  const bound = statuses[i] === '已绑定'
+  return {
+    id: `et-${String(i + 1).padStart(3, '0')}`,
+    earTag: `NML-2026-${String(i + 1).padStart(4, '0')}`,
+    cowId: bound ? `cw-${String(i + 1).padStart(3, '0')}` : '',
+    farmerName: bound ? farmers[i]! : '',
+    status: statuses[i]!,
+    bindDate: bound ? `2026-01-${String((i % 28) + 1).padStart(2, '0')}` : '',
+    remark: !bound ? '待发放' : i === 14 ? '备用批次' : undefined,
+  }
+})

@@ -46,7 +46,21 @@ const router = createRouter({
       path: '/',
       component: MainLayout,
       redirect: '/dashboard',
-      children: flattenRoutes(menuConfig),
+      children: [
+        ...flattenRoutes(menuConfig),
+        {
+          path: 'base/cow/farmer/:farmerId',
+          name: 'base-cow-farmer',
+          meta: { title: '户内奶牛档案' },
+          component: () => import('@/views/base/CowFarmerDetailView.vue'),
+        },
+        {
+          path: 'base/region/township/:townshipId',
+          name: 'base-region-township',
+          meta: { title: '行政村管理' },
+          component: () => import('@/views/base/RegionTownshipView.vue'),
+        },
+      ],
     },
   ],
 })

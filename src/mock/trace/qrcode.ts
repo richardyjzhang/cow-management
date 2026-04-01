@@ -12,21 +12,30 @@ export interface QrcodeRow {
   remark?: string
 }
 
-export const mockQrcodes: QrcodeRow[] = [
-  {
-    id: 'qr-001',
-    earTag: 'NML-2026-0001',
-    traceCode: 'TR-NML-2026-0001-A1B2',
-    issueDate: '2026-01-10',
-    scanCount: 42,
-    status: '有效',
-  },
-  {
-    id: 'qr-002',
-    earTag: 'NML-2026-0003',
-    traceCode: 'TR-NML-2026-0003-C3D4',
-    issueDate: '2026-02-01',
-    scanCount: 18,
-    status: '有效',
-  },
+const st: QrcodeStatus[] = [
+  '有效',
+  '有效',
+  '有效',
+  '有效',
+  '有效',
+  '有效',
+  '有效',
+  '有效',
+  '有效',
+  '有效',
+  '有效',
+  '有效',
+  '有效',
+  '有效',
+  '已失效',
 ]
+
+export const mockQrcodes: QrcodeRow[] = Array.from({ length: 15 }, (_, i) => ({
+  id: `qr-${String(i + 1).padStart(3, '0')}`,
+  earTag: `NML-2026-${String(i + 1).padStart(4, '0')}`,
+  traceCode: `TR-NML-2026-${String(i + 1).padStart(4, '0')}-${['A1', 'B2', 'C3', 'D4', 'E5'][i % 5]}${i}`,
+  issueDate: `2026-0${1 + (i % 2)}-${String((i % 27) + 1).padStart(2, '0')}`,
+  scanCount: 5 + i * 3 + (i % 7),
+  status: st[i]!,
+  remark: st[i] === '已失效' ? '耳标更换后作废' : undefined,
+}))

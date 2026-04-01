@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { h, ref, computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import {
   NCard,
@@ -7,7 +8,6 @@ import {
   NButton,
   NInput,
   NInputNumber,
-  NTag,
   NSpace,
   NIcon,
   NModal,
@@ -28,6 +28,7 @@ import { useFrontendPagination } from '@/composables/useFrontendPagination'
 import type { FarmerRow } from '@/mock/base/farmer'
 import type { CowRow } from '@/mock/base/cow'
 
+const router = useRouter()
 const regionStore = useBaseRegionStore()
 const farmerStore = useBaseFarmerStore()
 const cowStore = useBaseCowStore()
@@ -308,116 +309,7 @@ function confirmPickAdd() {
   else openCowModal('add')
 }
 
-function buildCowColumns(): DataTableColumns<CowRow> {
-  return [
-    { title: '耳标号', key: 'earTag', width: 140 },
-    { title: '品种', key: 'breed', width: 120, ellipsis: { tooltip: true } },
-    {
-      title: '性别',
-      key: 'sex',
-      width: 64,
-      align: 'center',
-      render(row) {
-        return h(NTag, { size: 'small', bordered: false, type: 'success' }, { default: () => row.sex })
-      },
-    },
-    { title: '月龄', key: 'ageMonths', width: 72, align: 'center' },
-    { title: '来源', key: 'source', minWidth: 140, ellipsis: { tooltip: true } },
-    {
-      title: '采购价(元)',
-      key: 'purchasePrice',
-      width: 108,
-      align: 'right',
-      render(row) {
-        return row.purchasePrice.toLocaleString()
-      },
-    },
-    {
-      title: '补助(元)',
-      key: 'subsidyAmount',
-      width: 96,
-      align: 'right',
-      render(row) {
-        return row.subsidyAmount.toLocaleString()
-      },
-    },
-    {
-      title: '自筹(元)',
-      key: 'selfPaid',
-      width: 96,
-      align: 'right',
-      render(row) {
-        return row.selfPaid.toLocaleString()
-      },
-    },
-    {
-      title: '备注',
-      key: 'remark',
-      minWidth: 120,
-      ellipsis: { tooltip: true },
-      render(row) {
-        return row.remark ?? '—'
-      },
-    },
-    {
-      title: '操作',
-      key: 'cowActions',
-      width: 140,
-      fixed: 'right',
-      render(row) {
-        return h(
-          NSpace,
-          { size: 10, align: 'center', wrap: false },
-          {
-            default: () => [
-              h(
-                NButton,
-                {
-                  text: true,
-                  type: 'primary',
-                  size: 'small',
-                  onClick: () => openCowModal('edit', undefined, row),
-                },
-                {
-                  default: () => '编辑',
-                  icon: () => h(NIcon, null, { default: () => h(CreateOutline) }),
-                },
-              ),
-              h(
-                NButton,
-                {
-                  text: true,
-                  size: 'small',
-                  onClick: () => confirmDeleteCow(row),
-                },
-                {
-                  default: () => '删除',
-                  icon: () => h(NIcon, null, { default: () => h(TrashOutline) }),
-                },
-              ),
-            ],
-          },
-        )
-      },
-    },
-  ]
-}
-
 const columns = computed<DataTableColumns<FarmerWithCows>>(() => [
-  {
-    type: 'expand',
-    expandable: (row) => row.cowList.length > 0,
-    renderExpand: (row) =>
-      h(NDataTable, {
-        size: 'small',
-        bordered: false,
-        singleLine: false,
-        columns: buildCowColumns(),
-        data: row.cowList,
-        rowKey: (r: CowRow) => r.id,
-        class: 'cow-expand-table-inner',
-      }),
-  },
   {
     title: '户主',
     key: 'headName',
@@ -446,7 +338,7 @@ const columns = computed<DataTableColumns<FarmerWithCows>>(() => [
   {
     title: '操作',
     key: 'actions',
-    width: 160,
+    width: 260,
     fixed: 'right',
     render(row) {
       return h(
@@ -454,6 +346,17 @@ const columns = computed<DataTableColumns<FarmerWithCows>>(() => [
         { size: 10, align: 'center', wrap: false },
         {
           default: () => [
+            h(
+              NButton,
+              {
+                text: true,
+                type: 'info',
+                size: 'small',
+                onClick: () =>
+                  router.push({ name: 'base-cow-farmer', params: { farmerId: row.id } }),
+              },
+              { default: () => '奶牛明细' },
+            ),
             h(
               NButton,
               {
@@ -494,7 +397,7 @@ function handleSearch() {
 <template>
   <NCard class="page-card page-card--fill" title="奶牛档案" :bordered="false">
     <template #header-extra>
-      <span class="page-card__hint">养殖户 → 奶牛 两级（展开查看户内奶牛明细）</span>
+      <span class="page-card__hint">养殖户列表；户内奶牛请在「奶牛明细」子页面查看与维护</span>
     </template>
 
     <div class="base-page base-page--table">
@@ -522,7 +425,7 @@ function handleSearch() {
 
       <div class="page-table-wrap">
         <NDataTable
-          class="base-table cow-table"
+          class="base-table"
           :columns="columns"
           :data="filteredData"
           :row-key="(row) => row.id"
@@ -531,7 +434,6 @@ function handleSearch() {
           :scroll-x="1100"
           :pagination="pagination"
           pagination-behavior-on-filter="first"
-          default-expand-all
         />
       </div>
     </div>
@@ -685,24 +587,5 @@ function handleSearch() {
 .base-table :deep(.n-data-table-th),
 .base-table :deep(.n-data-table-td) {
   padding: 0.625rem 0.75rem;
-}
-
-.cow-table :deep(.n-data-table-expand-trigger) {
-  margin-right: 0.5rem;
-}
-
-.cow-table :deep(.cow-expand-table-inner) {
-  margin: 0.25rem 0 0.75rem 0;
-}
-
-.cow-table :deep(.cow-expand-table-inner .n-data-table-td) {
-  background: #fafafa;
-}
-
-/* 展开子表按内容高度展示，避免少量行时出现整块竖向滚动条 */
-.cow-table :deep(.cow-expand-table-inner .n-data-table-wrapper),
-.cow-table :deep(.cow-expand-table-inner .n-scrollbar) {
-  max-height: none !important;
-  height: auto !important;
 }
 </style>
