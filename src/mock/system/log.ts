@@ -30,10 +30,11 @@ const modules = [
 
 const actions = ['新增', '编辑', '删除', '导出', '登录', '审核']
 
-export const mockLogs: LogRow[] = Array.from({ length: 15 }, (_, i) => ({
+/** 条数多一些，便于大屏底部操作日志轮播不显得重复 */
+export const mockLogs: LogRow[] = Array.from({ length: 40 }, (_, i) => ({
   id: `lg-${String(i + 1).padStart(3, '0')}`,
   operator: i % 3 === 0 ? 'admin' : `user${String((i % 8) + 1).padStart(2, '0')}`,
-  module: modules[i]!,
+  module: modules[i % modules.length]!,
   action: actions[i % actions.length]!,
   ip: `192.168.${i % 200}.${(i * 3) % 200}`,
   createdAt: `2026-03-${String((i % 28) + 1).padStart(2, '0')} ${String(8 + (i % 10)).padStart(2, '0')}:${String((i * 7) % 60).padStart(2, '0')}:00`,

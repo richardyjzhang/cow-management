@@ -1,98 +1,444 @@
 <script setup lang="ts">
-const kpis = [
-  { label: '在档奶牛', value: '12,580', unit: '头', trend: '+2.3%' },
-  { label: '登记养殖户', value: '3,246', unit: '户', trend: '+0.8%' },
-  { label: '覆盖区划', value: '186', unit: '个', trend: '—' },
-  { label: '本月免疫', value: '9,412', unit: '剂次', trend: '+5.1%' },
-]
+import './registerEcharts'
+import { computed } from 'vue'
+import { storeToRefs } from 'pinia'
+import VChart from 'vue-echarts'
+import { useBaseCowStore } from '@/stores/base/cow'
+import { useBaseFarmerStore } from '@/stores/base/farmer'
+import { useBaseRegionStore } from '@/stores/base/region'
+import { useBreedingMilkStore } from '@/stores/breeding/milk'
+import { useBreedingImmunityStore } from '@/stores/breeding/immunity'
+import { useStatsFundStore } from '@/stores/stats/fund'
+import { useProcessProgressStore } from '@/stores/process/progress'
+import { useSystemLogStore } from '@/stores/system/log'
+import { useProcessTaskStore } from '@/stores/process/task'
+import KpiCard from './components/KpiCard.vue'
+import ScreenPanel from './components/ScreenPanel.vue'
+import ScrollBoard, { type ScrollItem } from './components/ScrollBoard.vue'
 
-const milkTrend = [
-  { month: '1月', v: 62 },
-  { month: '2月', v: 58 },
-  { month: '3月', v: 71 },
-  { month: '4月', v: 69 },
-  { month: '5月', v: 76 },
-  { month: '6月', v: 82 },
-]
+const cowStore = useBaseCowStore()
+const farmerStore = useBaseFarmerStore()
+const regionStore = useBaseRegionStore()
+const milkStore = useBreedingMilkStore()
+const immunityStore = useBreedingImmunityStore()
+const fundStore = useStatsFundStore()
+const progressStore = useProcessProgressStore()
+const logStore = useSystemLogStore()
+const taskStore = useProcessTaskStore()
 
-const regions = [
-  { name: '华北片区', cows: 4280, farmers: 980 },
-  { name: '华东片区', cows: 3910, farmers: 1020 },
-  { name: '西南片区', cows: 2650, farmers: 756 },
-  { name: '其他', cows: 1740, farmers: 490 },
-]
+const { cows } = storeToRefs(cowStore)
+const { farmers } = storeToRefs(farmerStore)
+const { tree } = storeToRefs(regionStore)
+const { rows: milkRows } = storeToRefs(milkStore)
+const { rows: immunityRows } = storeToRefs(immunityStore)
+const { rows: fundRows } = storeToRefs(fundStore)
+const { rows: progressRows } = storeToRefs(progressStore)
+const { rows: logRows } = storeToRefs(logStore)
+const { rows: taskRows } = storeToRefs(taskStore)
 
-const maxMilk = Math.max(...milkTrend.map((x) => x.v))
+const townshipCount = computed(() => tree.value.length)
+const villageCount = computed(() =>
+  tree.value.reduce((n, t) => n + (t.children?.length ?? 0), 0),
+)
+
+const fundTotal = computed(() => fundRows.value.reduce((s, r) => s + r.amount, 0))
+
+/** 数据集中最近一日的产奶合计（演示） */
+const latestDayMilkKg = computed(() => {
+  const rows = milkRows.value
+  if (!rows.length) return 0
+  const dates = [...new Set(rows.map((r) => r.recordDate))].sort()
+  const last = dates[dates.length - 1]!
+  return rows.filter((r) => r.recordDate === last).reduce((s, r) => s + r.dailyKg, 0)
+})
+
+const farmerTownshipMap = computed(() => {
+  const m = new Map<string, number>()
+  for (const f of farmers.value) {
+    const t = f.townshipName || '未知'
+    m.set(t, (m.get(t) ?? 0) + 1)
+  }
+  return m
+})
+
+const cowTownshipMap = computed(() => {
+  const idToTown = new Map(farmers.value.map((f) => [f.id, f.townshipName]))
+  const m = new Map<string, number>()
+  for (const c of cows.value) {
+    const t = idToTown.get(c.farmerId) ?? '未知'
+    m.set(t, (m.get(t) ?? 0) + 1)
+  }
+  return m
+})
+
+const townshipKeysSorted = computed(() => {
+  const keys = [...new Set([...cowTownshipMap.value.keys(), ...farmerTownshipMap.value.keys()])]
+  keys.sort((a, b) => (cowTownshipMap.value.get(b) ?? 0) - (cowTownshipMap.value.get(a) ?? 0))
+  return keys.slice(0, 12)
+})
+
+const breedAgg = computed(() => {
+  const m = new Map<string, number>()
+  for (const c of cows.value) {
+    const b = c.breed || '其他'
+    m.set(b, (m.get(b) ?? 0) + 1)
+  }
+  return [...m.entries()].map(([name, value]) => ({ name, value }))
+})
+
+const milkByDate = computed(() => {
+  const m = new Map<string, number>()
+  for (const r of milkRows.value) {
+    m.set(r.recordDate, (m.get(r.recordDate) ?? 0) + r.dailyKg)
+  }
+  return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+})
+
+const immunityByVaccine = computed(() => {
+  const m = new Map<string, number>()
+  for (const r of immunityRows.value) {
+    const k = r.vaccineName.replace(/\s+/g, ' ').trim()
+    m.set(k, (m.get(k) ?? 0) + 1)
+  }
+  return [...m.entries()]
+    .map(([name, value]) => ({ name, value }))
+    .sort((a, b) => b.value - a.value)
+})
+
+const fundByCategory = computed(() => {
+  const cats = new Map<string, { in: number; out: number }>()
+  for (const r of fundRows.value) {
+    const cur = cats.get(r.category) ?? { in: 0, out: 0 }
+    if (r.amount >= 0) cur.in += r.amount
+    else cur.out += Math.abs(r.amount)
+    cats.set(r.category, cur)
+  }
+  return [...cats.entries()].map(([name, v]) => ({ name, ...v }))
+})
+
+const progressAvg = computed(() => {
+  const rows = progressRows.value
+  if (!rows.length) return 0
+  return Math.round(rows.reduce((s, r) => s + r.percent, 0) / rows.length)
+})
+
+const scrollItems = computed<ScrollItem[]>(() => {
+  const logs = [...logRows.value]
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    .slice(0, 24)
+    .map((r) => ({
+      tag: '日志',
+      text: `${r.module} · ${r.action}${r.operator ? `（${r.operator}）` : ''}`,
+      meta: r.createdAt,
+    }))
+  const tasks = taskRows.value.slice(0, 20).map((t) => ({
+    tag: '任务',
+    text: `${t.title}`,
+    meta: `${t.status} · ${t.dueDate}`,
+  }))
+  return [...logs, ...tasks]
+})
+
+const anim = { animationDuration: 1100, animationEasing: 'cubicOut' as const }
+
+const chartPalette = ['#22d3ee', '#38bdf8', '#a78bfa', '#fbbf24', '#34d399', '#f472b6', '#94a3b8']
+
+const optBreedRose = computed(() => ({
+  ...anim,
+  color: chartPalette,
+  tooltip: { trigger: 'item', textStyle: { color: '#e2e8f0' }, backgroundColor: 'rgba(15,23,42,0.92)' },
+  legend: { bottom: 0, textStyle: { color: '#94a3b8', fontSize: 11 } },
+  series: [
+    {
+      name: '品种',
+      type: 'pie',
+      radius: [24, 92],
+      center: ['50%', '44%'],
+      roseType: 'area',
+      itemStyle: { borderRadius: 6 },
+      label: { color: '#cbd5e1' },
+      data: breedAgg.value.map((d) => ({ name: d.name, value: d.value })),
+    },
+  ],
+}))
+
+const optMilkLine = computed(() => ({
+  ...anim,
+  color: ['#22d3ee'],
+  tooltip: { trigger: 'axis', textStyle: { color: '#e2e8f0' }, backgroundColor: 'rgba(15,23,42,0.92)' },
+  grid: { left: '2%', right: '2%', bottom: '2%', top: '10%', containLabel: true },
+  xAxis: {
+    type: 'category',
+    boundaryGap: false,
+    data: milkByDate.value.map(([d]) => d.slice(5)),
+    axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 35 },
+    axisLine: { lineStyle: { color: 'rgba(148,163,184,0.35)' } },
+  },
+  yAxis: {
+    type: 'value',
+    axisLabel: { color: '#94a3b8', fontSize: 10 },
+    splitLine: { lineStyle: { color: 'rgba(51,65,85,0.45)' } },
+  },
+  series: [
+    {
+      name: '日产奶(kg)',
+      type: 'line',
+      smooth: true,
+      symbol: 'circle',
+      symbolSize: 6,
+      areaStyle: {
+        color: {
+          type: 'linear',
+          x: 0,
+          y: 0,
+          x2: 0,
+          y2: 1,
+          colorStops: [
+            { offset: 0, color: 'rgba(34,211,238,0.45)' },
+            { offset: 1, color: 'rgba(34,211,238,0.02)' },
+          ],
+        },
+      },
+      lineStyle: { width: 2 },
+      data: milkByDate.value.map(([, v]) => Number(v.toFixed(1))),
+    },
+  ],
+}))
+
+const optImmunityBar = computed(() => ({
+  ...anim,
+  color: chartPalette,
+  tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { color: '#e2e8f0' }, backgroundColor: 'rgba(15,23,42,0.92)' },
+  grid: { left: '2%', right: '8%', bottom: '2%', top: '2%', containLabel: true },
+  xAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 10 }, splitLine: { lineStyle: { color: 'rgba(51,65,85,0.45)' } } },
+  yAxis: {
+    type: 'category',
+    data: immunityByVaccine.value.map((d) => (d.name.length > 10 ? `${d.name.slice(0, 10)}…` : d.name)),
+    axisLabel: { color: '#94a3b8', fontSize: 10 },
+    axisLine: { show: false },
+  },
+  series: [{ type: 'bar', data: immunityByVaccine.value.map((d) => d.value), itemStyle: { borderRadius: [0, 4, 4, 0] } }],
+}))
+
+const optTownshipMain = computed(() => {
+  const keys = townshipKeysSorted.value
+  return {
+    ...anim,
+    color: ['#22d3ee', '#a78bfa'],
+    tooltip: { trigger: 'axis', textStyle: { color: '#e2e8f0' }, backgroundColor: 'rgba(15,23,42,0.92)' },
+    legend: { data: ['奶牛存栏', '养殖户'], textStyle: { color: '#94a3b8', fontSize: 11 }, top: 0 },
+    grid: { left: '2%', right: '2%', bottom: '2%', top: '14%', containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: keys.map((k) => (k.length > 5 ? `${k.slice(0, 4)}…` : k)),
+      axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 28 },
+      axisLine: { lineStyle: { color: 'rgba(148,163,184,0.35)' } },
+    },
+    yAxis: {
+      type: 'value',
+      axisLabel: { color: '#94a3b8', fontSize: 10 },
+      splitLine: { lineStyle: { color: 'rgba(51,65,85,0.45)' } },
+    },
+    series: [
+      {
+        name: '奶牛存栏',
+        type: 'bar',
+        barMaxWidth: 22,
+        data: keys.map((k) => cowTownshipMap.value.get(k) ?? 0),
+        itemStyle: {
+          borderRadius: [4, 4, 0, 0],
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: '#22d3ee' },
+              { offset: 1, color: 'rgba(34,211,238,0.15)' },
+            ],
+          },
+        },
+      },
+      {
+        name: '养殖户',
+        type: 'bar',
+        barMaxWidth: 22,
+        data: keys.map((k) => farmerTownshipMap.value.get(k) ?? 0),
+        itemStyle: {
+          borderRadius: [4, 4, 0, 0],
+          color: {
+            type: 'linear',
+            x: 0,
+            y: 0,
+            x2: 0,
+            y2: 1,
+            colorStops: [
+              { offset: 0, color: '#a78bfa' },
+              { offset: 1, color: 'rgba(167,139,250,0.15)' },
+            ],
+          },
+        },
+      },
+    ],
+  }
+})
+
+const optFarmerBar = computed(() => {
+  const entries = [...farmerTownshipMap.value.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
+  return {
+    ...anim,
+    color: ['#38bdf8'],
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { color: '#e2e8f0' }, backgroundColor: 'rgba(15,23,42,0.92)' },
+    grid: { left: '2%', right: '6%', bottom: '2%', top: '2%', containLabel: true },
+    xAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 10 }, splitLine: { lineStyle: { color: 'rgba(51,65,85,0.45)' } } },
+    yAxis: {
+      type: 'category',
+      data: entries.map(([k]) => (k.length > 8 ? `${k.slice(0, 7)}…` : k)),
+      axisLabel: { color: '#94a3b8', fontSize: 10 },
+    },
+    series: [{ name: '户数', type: 'bar', data: entries.map(([, v]) => v), itemStyle: { borderRadius: [0, 4, 4, 0] } }],
+  }
+})
+
+const optProgressBar = computed(() => {
+  const rows = [...progressRows.value].sort((a, b) => b.percent - a.percent).slice(0, 8)
+  return {
+    ...anim,
+    color: ['#34d399'],
+    tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, textStyle: { color: '#e2e8f0' }, backgroundColor: 'rgba(15,23,42,0.92)' },
+    grid: { left: '2%', right: '8%', bottom: '2%', top: '2%', containLabel: true },
+    xAxis: { type: 'value', max: 100, axisLabel: { color: '#94a3b8', fontSize: 10 }, splitLine: { lineStyle: { color: 'rgba(51,65,85,0.45)' } } },
+    yAxis: {
+      type: 'category',
+      data: rows.map((r) => (r.projectName.length > 12 ? `${r.projectName.slice(0, 11)}…` : r.projectName)),
+      axisLabel: { color: '#94a3b8', fontSize: 10 },
+    },
+    series: [{ type: 'bar', data: rows.map((r) => r.percent), itemStyle: { borderRadius: [0, 4, 4, 0] } }],
+  }
+})
+
+const optFundStack = computed(() => {
+  const rows = fundByCategory.value
+  return {
+    ...anim,
+    color: ['#34d399', '#f87171'],
+    tooltip: { trigger: 'axis', textStyle: { color: '#e2e8f0' }, backgroundColor: 'rgba(15,23,42,0.92)' },
+    legend: { data: ['收入', '支出'], textStyle: { color: '#94a3b8', fontSize: 11 }, top: 0 },
+    grid: { left: '2%', right: '2%', bottom: '2%', top: '14%', containLabel: true },
+    xAxis: {
+      type: 'category',
+      data: rows.map((r) => (r.name.length > 6 ? `${r.name.slice(0, 5)}…` : r.name)),
+      axisLabel: { color: '#94a3b8', fontSize: 10, rotate: 22 },
+    },
+    yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 10 }, splitLine: { lineStyle: { color: 'rgba(51,65,85,0.45)' } } },
+    series: [
+      { name: '收入', type: 'bar', stack: 'total', data: rows.map((r) => r.in), itemStyle: { borderRadius: [0, 0, 0, 0] } },
+      { name: '支出', type: 'bar', stack: 'total', data: rows.map((r) => r.out), itemStyle: { borderRadius: [4, 4, 0, 0] } },
+    ],
+  }
+})
+
+const optGauge = computed(() => ({
+  ...anim,
+  series: [
+    {
+      type: 'gauge',
+      startAngle: 210,
+      endAngle: -30,
+      min: 0,
+      max: 100,
+      splitNumber: 10,
+      radius: '88%',
+      center: ['50%', '58%'],
+      progress: { show: true, width: 10, itemStyle: { color: '#22d3ee' } },
+      axisLine: { lineStyle: { width: 10, color: [[1, 'rgba(51,65,85,0.55)']] } },
+      axisTick: { show: false },
+      splitLine: { show: false },
+      axisLabel: { color: '#94a3b8', distance: 12, fontSize: 10 },
+      pointer: { show: true, length: '58%', width: 5, itemStyle: { color: '#fef9c3' } },
+      anchor: { show: true, size: 12, itemStyle: { color: '#fef9c3' } },
+      title: { show: true, offsetCenter: [0, '72%'], color: '#94a3b8', fontSize: 12 },
+      detail: {
+        valueAnimation: true,
+        fontSize: 22,
+        fontWeight: 700,
+        color: '#fef9c3',
+        offsetCenter: [0, '38%'],
+        formatter: '{value}%',
+      },
+      data: [{ value: progressAvg.value, name: '项目平均进度' }],
+    },
+  ],
+}))
 </script>
 
 <template>
   <div class="big-screen">
     <section class="big-screen__hero">
       <h1 class="big-screen__hero-title">养殖运营实时总览</h1>
-      <p class="big-screen__hero-desc">关键指标 · 产奶趋势 · 区域分布（演示数据）</p>
+      <p class="big-screen__hero-desc">关键指标 · 多源汇聚 · 演示数据与当前会话内数据一致</p>
     </section>
 
     <section class="big-screen__kpis">
-      <article v-for="item in kpis" :key="item.label" class="big-screen__kpi">
-        <div class="big-screen__kpi-label">{{ item.label }}</div>
-        <div class="big-screen__kpi-row">
-          <span class="big-screen__kpi-value">{{ item.value }}</span>
-          <span class="big-screen__kpi-unit">{{ item.unit }}</span>
-        </div>
-        <div class="big-screen__kpi-trend">{{ item.trend }} 环比</div>
-      </article>
+      <KpiCard label="在档奶牛" :target="cows.length" unit="头" />
+      <KpiCard label="登记养殖户" :target="farmers.length" unit="户" />
+      <KpiCard label="覆盖乡镇" :target="townshipCount" unit="个" />
+      <KpiCard label="覆盖行政村" :target="villageCount" unit="个" />
+      <KpiCard
+        label="日产奶量(最近统计日)"
+        :target="latestDayMilkKg"
+        unit="kg"
+        :decimals="1"
+        sub="按产奶记录最近日期汇总"
+      />
+      <KpiCard
+        label="资金流水合计"
+        :target="fundTotal"
+        unit="元"
+        :decimals="0"
+        sub="收入与支出代数和"
+      />
     </section>
 
-    <div class="big-screen__grid">
-      <section class="big-screen__panel big-screen__panel--chart">
-        <header class="big-screen__panel-head">
-          <span class="big-screen__panel-title">近六月产奶指数</span>
-          <span class="big-screen__panel-hint">相对指数 · 越高越好</span>
-        </header>
-        <div class="big-screen__bars">
-          <div v-for="row in milkTrend" :key="row.month" class="big-screen__bar-wrap">
-            <div
-              class="big-screen__bar"
-              :style="{ height: `${(row.v / maxMilk) * 100}%` }"
-              :title="`${row.month}: ${row.v}`"
-            />
-            <span class="big-screen__bar-label">{{ row.month }}</span>
-          </div>
-        </div>
-      </section>
+    <div class="big-screen__cols">
+      <aside class="big-screen__col big-screen__col--side">
+        <ScreenPanel title="牛群品种分布" hint="南丁格尔玫瑰">
+          <VChart class="big-screen__chart big-screen__chart--sm" :option="optBreedRose" autoresize />
+        </ScreenPanel>
+        <ScreenPanel title="产奶趋势" hint="按日汇总(kg)">
+          <VChart class="big-screen__chart big-screen__chart--md" :option="optMilkLine" autoresize />
+        </ScreenPanel>
+        <ScreenPanel title="免疫剂次" hint="按疫苗名称">
+          <VChart class="big-screen__chart big-screen__chart--md" :option="optImmunityBar" autoresize />
+        </ScreenPanel>
+      </aside>
 
-      <section class="big-screen__panel big-screen__panel--donut">
-        <header class="big-screen__panel-head">
-          <span class="big-screen__panel-title">区域奶牛占比</span>
-        </header>
-        <div class="big-screen__donut-wrap">
-          <div class="big-screen__donut" aria-hidden="true" />
-          <ul class="big-screen__legend">
-            <li v-for="r in regions" :key="r.name">
-              <span class="big-screen__legend-name">{{ r.name }}</span>
-              <span class="big-screen__legend-val">{{ r.cows.toLocaleString() }} 头</span>
-            </li>
-          </ul>
+      <main class="big-screen__col big-screen__col--center">
+        <ScreenPanel title="乡镇养殖对比" hint="存栏与户数">
+          <VChart class="big-screen__chart big-screen__chart--lg" :option="optTownshipMain" autoresize />
+        </ScreenPanel>
+        <div class="big-screen__center-row">
+          <ScreenPanel class="big-screen__gauge-wrap" title="综合进度" hint="各项目百分比均值">
+            <VChart class="big-screen__chart big-screen__chart--gauge" :option="optGauge" autoresize />
+          </ScreenPanel>
+          <ScreenPanel title="运行动态" hint="日志与任务">
+            <ScrollBoard :items="scrollItems" />
+          </ScreenPanel>
         </div>
-      </section>
+      </main>
 
-      <section class="big-screen__panel big-screen__panel--table">
-        <header class="big-screen__panel-head">
-          <span class="big-screen__panel-title">片区概览</span>
-        </header>
-        <div class="big-screen__table">
-          <div class="big-screen__table-row big-screen__table-row--head">
-            <span>片区</span>
-            <span>奶牛</span>
-            <span>养殖户</span>
-          </div>
-          <div v-for="r in regions" :key="r.name" class="big-screen__table-row">
-            <span>{{ r.name }}</span>
-            <span>{{ r.cows.toLocaleString() }}</span>
-            <span>{{ r.farmers.toLocaleString() }}</span>
-          </div>
-        </div>
-      </section>
+      <aside class="big-screen__col big-screen__col--side">
+        <ScreenPanel title="养殖户分布" hint="按乡镇">
+          <VChart class="big-screen__chart big-screen__chart--sm" :option="optFarmerBar" autoresize />
+        </ScreenPanel>
+        <ScreenPanel title="项目进度" hint="TOP 按完成度">
+          <VChart class="big-screen__chart big-screen__chart--md" :option="optProgressBar" autoresize />
+        </ScreenPanel>
+        <ScreenPanel title="资金流向" hint="按类别收支堆叠">
+          <VChart class="big-screen__chart big-screen__chart--md" :option="optFundStack" autoresize />
+        </ScreenPanel>
+      </aside>
     </div>
   </div>
 </template>
@@ -101,19 +447,20 @@ const maxMilk = Math.max(...milkTrend.map((x) => x.v))
 .big-screen {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  max-width: 100rem;
+  gap: 0.75rem;
+  max-width: 110rem;
   margin: 0 auto;
+  min-height: min-content;
 }
 
 .big-screen__hero {
   text-align: center;
-  padding: 0.25rem 0 0.5rem;
+  padding: 0.15rem 0 0.25rem;
 }
 
 .big-screen__hero-title {
   margin: 0;
-  font-size: clamp(1.25rem, 3vw, 1.75rem);
+  font-size: clamp(1.1rem, 2.4vw, 1.6rem);
   font-weight: 700;
   letter-spacing: 0.12em;
   background: linear-gradient(90deg, #fef3c7, #22d3ee, #a5f3fc);
@@ -123,234 +470,88 @@ const maxMilk = Math.max(...milkTrend.map((x) => x.v))
 }
 
 .big-screen__hero-desc {
-  margin: 0.5rem 0 0;
-  font-size: 0.875rem;
-  color: rgba(226, 232, 240, 0.65);
+  margin: 0.35rem 0 0;
+  font-size: 0.8125rem;
+  color: rgba(226, 232, 240, 0.58);
   letter-spacing: 0.06em;
 }
 
 .big-screen__kpis {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.6rem;
 }
 
-@media (max-width: 72rem) {
+@media (max-width: 96rem) {
+  .big-screen__kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 52rem) {
   .big-screen__kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-.big-screen__kpi {
-  position: relative;
-  padding: 0.85rem 1rem;
-  border-radius: 0.5rem;
-  border: 1px solid rgba(34, 211, 238, 0.28);
-  background: linear-gradient(145deg, rgba(8, 30, 55, 0.85), rgba(6, 18, 36, 0.65));
-  box-shadow:
-    0 0 0 1px rgba(15, 23, 42, 0.5) inset,
-    0 12px 40px rgba(0, 0, 0, 0.35);
-  overflow: hidden;
-}
-
-.big-screen__kpi::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: radial-gradient(circle at 100% 0%, rgba(34, 211, 238, 0.12), transparent 55%);
-  pointer-events: none;
-}
-
-.big-screen__kpi-label {
-  position: relative;
-  z-index: 1;
-  font-size: 0.8125rem;
-  color: rgba(226, 232, 240, 0.75);
-  letter-spacing: 0.04em;
-}
-
-.big-screen__kpi-row {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  align-items: baseline;
-  gap: 0.25rem;
-  margin-top: 0.35rem;
-}
-
-.big-screen__kpi-value {
-  font-size: clamp(1.25rem, 2.2vw, 1.6rem);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  color: #fef9c3;
-  text-shadow: 0 0 20px rgba(250, 204, 21, 0.35);
-}
-
-.big-screen__kpi-unit {
-  font-size: 0.8125rem;
-  color: rgba(226, 232, 240, 0.55);
-}
-
-.big-screen__kpi-trend {
-  position: relative;
-  z-index: 1;
-  margin-top: 0.4rem;
-  font-size: 0.75rem;
-  color: rgba(52, 211, 153, 0.9);
-}
-
-.big-screen__grid {
+.big-screen__cols {
   display: grid;
-  grid-template-columns: 1.2fr 1fr;
-  grid-template-rows: auto auto;
-  gap: 0.75rem;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2.1fr) minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: stretch;
 }
 
-@media (max-width: 64rem) {
-  .big-screen__grid {
+@media (max-width: 90rem) {
+  .big-screen__cols {
     grid-template-columns: 1fr;
   }
 }
 
-.big-screen__panel {
-  border-radius: 0.5rem;
-  border: 1px solid rgba(34, 211, 238, 0.22);
-  background: rgba(6, 18, 36, 0.55);
-  padding: 0.75rem 1rem 1rem;
-  min-height: 12rem;
-}
-
-.big-screen__panel--table {
-  grid-column: 1 / -1;
-}
-
-.big-screen__panel-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
-  margin-bottom: 0.75rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid rgba(34, 211, 238, 0.15);
-}
-
-.big-screen__panel-title {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  color: #e0f2fe;
-}
-
-.big-screen__panel-hint {
-  font-size: 0.75rem;
-  color: rgba(226, 232, 240, 0.45);
-}
-
-.big-screen__bars {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 0.5rem;
-  height: 11rem;
-  padding: 0 0.25rem;
-}
-
-.big-screen__bar-wrap {
-  flex: 1;
+.big-screen__col {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.35rem;
-  height: 100%;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
-.big-screen__bar {
-  width: 100%;
-  max-width: 3rem;
-  margin-top: auto;
-  border-radius: 0.25rem 0.25rem 0 0;
-  background: linear-gradient(180deg, #22d3ee, rgba(34, 211, 238, 0.15));
-  box-shadow: 0 0 20px rgba(34, 211, 238, 0.25);
-  min-height: 4px;
-  transition: filter 0.2s;
+.big-screen__col--center {
+  min-height: 0;
 }
 
-.big-screen__bar:hover {
-  filter: brightness(1.15);
-}
-
-.big-screen__bar-label {
-  font-size: 0.75rem;
-  color: rgba(226, 232, 240, 0.55);
-}
-
-.big-screen__donut-wrap {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: 1.25rem;
-}
-
-.big-screen__donut {
-  width: 10rem;
-  height: 10rem;
-  border-radius: 50%;
-  background: conic-gradient(
-    #22d3ee 0% 34%,
-    #38bdf8 34% 65%,
-    #a78bfa 65% 86%,
-    rgba(148, 163, 184, 0.55) 86% 100%
-  );
-  mask: radial-gradient(farthest-side, transparent calc(100% - 18px), #000 calc(100% - 18px + 1px));
-  box-shadow: 0 0 32px rgba(34, 211, 238, 0.2);
-}
-
-.big-screen__legend {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  min-width: 12rem;
-}
-
-.big-screen__legend li {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  font-size: 0.8125rem;
-  padding: 0.35rem 0;
-  border-bottom: 1px dashed rgba(148, 163, 184, 0.2);
-  color: rgba(226, 232, 240, 0.85);
-}
-
-.big-screen__legend-val {
-  font-variant-numeric: tabular-nums;
-  color: #a5f3fc;
-}
-
-.big-screen__table {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.big-screen__table-row {
+.big-screen__center-row {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr;
-  gap: 0.5rem;
-  padding: 0.5rem 0.5rem;
-  font-size: 0.875rem;
-  border-radius: 0.25rem;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 0.65rem;
+  align-items: stretch;
 }
 
-.big-screen__table-row--head {
-  font-size: 0.75rem;
-  color: rgba(226, 232, 240, 0.55);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
+@media (max-width: 64rem) {
+  .big-screen__center-row {
+    grid-template-columns: 1fr;
+  }
 }
 
-.big-screen__table-row:not(.big-screen__table-row--head):nth-child(odd) {
-  background: rgba(15, 23, 42, 0.45);
+.big-screen__gauge-wrap {
+  min-height: 14rem;
+}
+
+.big-screen__chart {
+  width: 100%;
+}
+
+.big-screen__chart--sm {
+  height: 15rem;
+}
+
+.big-screen__chart--md {
+  height: 17rem;
+}
+
+.big-screen__chart--lg {
+  height: 22rem;
+}
+
+.big-screen__chart--gauge {
+  height: 13.5rem;
 }
 </style>

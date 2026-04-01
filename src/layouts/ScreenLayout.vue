@@ -79,6 +79,17 @@ onUnmounted(() => {
   background-size: 48px 48px;
   opacity: 0.35;
   mask-image: radial-gradient(ellipse 70% 60% at 50% 30%, black 20%, transparent 75%);
+  animation: screenGridPulse 7s ease-in-out infinite;
+}
+
+@keyframes screenGridPulse {
+  0%,
+  100% {
+    opacity: 0.28;
+  }
+  50% {
+    opacity: 0.48;
+  }
 }
 
 .screen-root__header {
@@ -102,11 +113,39 @@ onUnmounted(() => {
 }
 
 .screen-root__title {
+  position: relative;
   font-size: clamp(1rem, 2vw, 1.35rem);
   font-weight: 700;
   letter-spacing: 0.06em;
   white-space: nowrap;
   text-shadow: 0 0 18px var(--screen-glow);
+  overflow: hidden;
+}
+
+.screen-root__title::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.09),
+    transparent
+  );
+  transform: translateX(-120%);
+  animation: screenTitleShine 5.5s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes screenTitleShine {
+  0%,
+  40% {
+    transform: translateX(-120%);
+  }
+  60%,
+  100% {
+    transform: translateX(120%);
+  }
 }
 
 .screen-root__tag {

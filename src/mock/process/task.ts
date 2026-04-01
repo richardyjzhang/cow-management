@@ -29,35 +29,29 @@ const titles = [
   '县级督查迎检准备',
   '牧道维修协调',
   '良种登记信息补录',
+  '青贮窖建设验收',
+  '奶牛保险续保动员',
+  '粪污台账月度更新',
+  '冷链设备巡检',
+  '示范片观摩路线踩点',
+  '补贴公示材料张贴',
 ]
 
 const types = ['防疫', '补贴', '项目', '采购', '培训', '溯源', '综合']
 
-const statuses: TaskStatus[] = [
-  '进行中',
-  '待办',
-  '已完成',
-  '进行中',
-  '待办',
-  '已完成',
-  '进行中',
-  '待办',
-  '已完成',
-  '进行中',
-  '待办',
-  '已完成',
-  '进行中',
-  '待办',
-  '已取消',
-]
+function taskStatusAt(i: number): TaskStatus {
+  const cycle: TaskStatus[] = ['进行中', '待办', '已完成', '进行中', '待办', '已取消']
+  return cycle[i % cycle.length]!
+}
 
-export const mockTasks: TaskRow[] = Array.from({ length: 15 }, (_, i) => ({
+/** 与日志类似，略多几条供大屏任务动态轮播 */
+export const mockTasks: TaskRow[] = Array.from({ length: 35 }, (_, i) => ({
   id: `tk-${String(i + 1).padStart(3, '0')}`,
-  title: titles[i]!,
+  title: titles[i % titles.length]!,
   type: types[i % types.length]!,
   assignee: i % 2 === 0 ? '乡镇兽医站' : '县畜牧中心',
   dueDate: `2026-04-${String((i % 28) + 1).padStart(2, '0')}`,
   priority: ['高', '中', '低'][i % 3]!,
-  status: statuses[i]!,
-  remark: statuses[i] === '已取消' ? '上级调整计划' : undefined,
+  status: taskStatusAt(i),
+  remark: taskStatusAt(i) === '已取消' ? '上级调整计划' : undefined,
 }))
