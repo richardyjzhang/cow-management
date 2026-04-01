@@ -10,11 +10,11 @@ export interface ThemePreset {
 export const THEME_PRESETS: ThemePreset[] = [
   {
     id: 'pasture-green',
-    name: '暖金',
-    primary: '#DFC798',
-    primaryHover: '#E8D4A8',
-    primaryPressed: '#C4AE78',
-    primarySuppl: '#C9B27A',
+    name: '牧场绿',
+    primary: '#679D3F',
+    primaryHover: '#7AAF58',
+    primaryPressed: '#5A8338',
+    primarySuppl: '#5A8338',
   },
   {
     id: 'sky-blue',

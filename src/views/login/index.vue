@@ -103,7 +103,7 @@ async function handleLogin() {
       <div class="flex flex-1 flex-col justify-center">
         <header class="mb-10">
           <h1 class="m-0 text-xl font-semibold leading-snug tracking-wide text-white">
-            优质南牛管理系统
+            优质奶牛管理系统
           </h1>
         </header>
 

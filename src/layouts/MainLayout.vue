@@ -104,7 +104,7 @@ function handleUserDropdown(key: string | number) {
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 32 32"
             class="app-topbar__badge"
-            style="color: var(--theme-primary, #dfc798)"
+            style="color: var(--theme-primary, #679d3f)"
           >
             <rect width="32" height="32" rx="6" fill="currentColor" />
             <ellipse cx="16" cy="14" rx="8" ry="6" fill="rgba(255,255,255,0.85)" />

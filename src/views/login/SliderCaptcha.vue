@@ -60,7 +60,7 @@ defineExpose({ reset })
         width: thumbLeft + THUMB_SIZE + 'px',
         background: verified
           ? undefined
-          : 'color-mix(in srgb, var(--theme-primary, #dfc798) 12%, transparent)',
+          : 'color-mix(in srgb, var(--theme-primary, #679d3f) 12%, transparent)',
       }"
     />
 

@@ -17,10 +17,10 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 
-  --theme-primary: #dfc798;
-  --theme-primary-hover: #e8d4a8;
-  --theme-primary-pressed: #c4ae78;
-  --theme-primary-suppl: #c9b27a;
+  --theme-primary: #679d3f;
+  --theme-primary-hover: #7aaf58;
+  --theme-primary-pressed: #5a8338;
+  --theme-primary-suppl: #5a8338;
 }
 
 * {
@@ -92,11 +92,11 @@ select {
 }
 
 .app-topbar__logo--link:hover {
-  background: rgba(223, 199, 152, 0.14);
+  background: rgba(103, 157, 63, 0.14);
 }
 
 .app-topbar__logo--link:focus-visible {
-  outline: 2px solid var(--theme-primary, #dfc798);
+  outline: 2px solid var(--theme-primary, #679d3f);
   outline-offset: 2px;
 }
 
@@ -212,13 +212,13 @@ select {
 
 .tab-item--active {
   background: #ffffff;
-  color: var(--theme-primary, #dfc798);
+  color: var(--theme-primary, #679d3f);
   font-weight: 500;
 }
 
 .tab-item--active:hover {
   background: #ffffff;
-  color: var(--theme-primary, #dfc798);
+  color: var(--theme-primary, #679d3f);
 }
 
 .tab-item__icon {
@@ -227,7 +227,7 @@ select {
 }
 
 .tab-item--active .tab-item__icon {
-  color: var(--theme-primary, #dfc798);
+  color: var(--theme-primary, #679d3f);
   opacity: 1;
 }
 
@@ -259,13 +259,13 @@ select {
 }
 
 .tab-item--active .tab-item__close {
-  color: var(--theme-primary, #dfc798);
+  color: var(--theme-primary, #679d3f);
   opacity: 0.5;
 }
 
 .tab-item--active .tab-item__close:hover {
   background: rgba(0, 0, 0, 0.08);
-  color: var(--theme-primary, #dfc798);
+  color: var(--theme-primary, #679d3f);
   opacity: 1;
 }
 

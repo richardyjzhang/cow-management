@@ -146,7 +146,7 @@ const kpiItems = computed(() => [
 
 // ---- 图表数据 ----
 
-const chartPalette = ['#DFC798', '#5B9BD5', '#70AD47', '#ED7D31', '#A5A5A5', '#E06C75']
+const chartPalette = ['#679D3F', '#5B9BD5', '#7AAF58', '#ED7D31', '#A5A5A5', '#E06C75']
 
 // 产奶趋势
 const milkByDate = computed(() => {
@@ -184,15 +184,15 @@ const optMilkLine = computed(() => ({
       smooth: true,
       symbol: 'circle',
       symbolSize: 5,
-      lineStyle: { width: 2.5, color: '#C4AE78' },
-      itemStyle: { color: '#C4AE78' },
+      lineStyle: { width: 2.5, color: '#679D3F' },
+      itemStyle: { color: '#679D3F' },
       areaStyle: {
         color: {
           type: 'linear',
           x: 0, y: 0, x2: 0, y2: 1,
           colorStops: [
-            { offset: 0, color: 'rgba(223,199,152,0.35)' },
-            { offset: 1, color: 'rgba(223,199,152,0.03)' },
+            { offset: 0, color: 'rgba(103,157,63,0.35)' },
+            { offset: 1, color: 'rgba(103,157,63,0.03)' },
           ],
         },
       },
@@ -290,7 +290,7 @@ const optTownship = computed(() => ({
     axisLabel: { color: '#86909C', fontSize: 11 },
     splitLine: { lineStyle: { color: '#F0F0F0' } },
   },
-  color: ['#DFC798', '#5B9BD5'],
+  color: ['#679D3F', '#5B9BD5'],
   barGap: '28%',
   barCategoryGap: '42%',
   series: [
@@ -356,7 +356,7 @@ const optFundStack = computed(() => ({
     },
     splitLine: { lineStyle: { color: '#F0F0F0' } },
   },
-  color: ['#70AD47', '#E06C75'],
+  color: ['#679D3F', '#E06C75'],
   barCategoryGap: '40%',
   series: [
     {
@@ -387,8 +387,8 @@ const progressTop8 = computed(() =>
 )
 
 function progressColor(p: number): string {
-  if (p >= 85) return '#70AD47'
-  if (p >= 50) return '#DFC798'
+  if (p >= 85) return '#679D3F'
+  if (p >= 50) return '#7AAF58'
   return '#ED7D31'
 }
 
