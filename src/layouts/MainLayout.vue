@@ -14,8 +14,10 @@ import {
 import { LogOutOutline, PersonOutline, CloseOutline } from '@vicons/ionicons5'
 import { menuConfig, type MenuItemConfig } from '@/router/menu'
 import { useTabsStore } from '@/stores/tabs'
+import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
+const authStore = useAuthStore()
 const route = useRoute()
 const tabsStore = useTabsStore()
 
@@ -85,8 +87,11 @@ const userDropdownOptions = [
   },
 ]
 
-function handleUserDropdown() {
-  //
+function handleUserDropdown(key: string | number) {
+  if (key === 'logout') {
+    authStore.logout()
+    void router.push('/login')
+  }
 }
 </script>
 
@@ -94,12 +99,12 @@ function handleUserDropdown() {
   <NLayout class="app-root">
     <NLayoutHeader bordered class="app-topbar">
       <div class="app-topbar__left">
-        <div class="app-topbar__logo">
+        <RouterLink to="/screen" class="app-topbar__logo app-topbar__logo--link">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 32 32"
             class="app-topbar__badge"
-            style="color: var(--theme-primary, #169e8c)"
+            style="color: var(--theme-primary, #dfc798)"
           >
             <rect width="32" height="32" rx="6" fill="currentColor" />
             <ellipse cx="16" cy="14" rx="8" ry="6" fill="rgba(255,255,255,0.85)" />
@@ -110,7 +115,7 @@ function handleUserDropdown() {
             <ellipse cx="16" cy="17" rx="2" ry="1.2" fill="rgba(255,255,255,0.5)" />
           </svg>
           <span class="app-topbar__name">优质奶牛管理信息系统</span>
-        </div>
+        </RouterLink>
       </div>
       <div class="app-topbar__right">
         <span class="app-topbar__hint">Cow Management System</span>
