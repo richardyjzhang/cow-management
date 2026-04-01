@@ -30,10 +30,16 @@ const projects = [
 
 const categories = ['补贴发放', '项目支出', '运维费用', '其他收入', '其他支出']
 
+const amounts = [
+  480000, -125000, 36000, -89000, 215000,
+  -42000, 18500, -156000, 320000, -28000,
+  65000, -73000, 142000, -31000, 58000,
+]
+
 export const mockFunds: FundRow[] = Array.from({ length: 15 }, (_, i) => ({
   id: `fd-${String(i + 1).padStart(3, '0')}`,
   projectName: projects[i]!,
-  amount: i % 4 === 1 || i % 4 === 3 ? -(5000 + i * 1200) : 3000 + i * 800,
+  amount: amounts[i]!,
   category: categories[i % categories.length]!,
   happenDate: `2026-03-${String((i % 28) + 1).padStart(2, '0')}`,
   voucherNo: `PZ-2026-${String(30 + i).padStart(3, '0')}`,

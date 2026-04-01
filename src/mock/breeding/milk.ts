@@ -17,11 +17,14 @@ export const mockMilks: MilkRow[] = Array.from({ length: 60 }, (_, i) => {
   const day = (i % 20) + 1
   const recordDate = `2026-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   const tagNum = (i % 15) + 1
+  const seasonal = month === 1 ? -3.5 : month === 2 ? -1.2 : 2.8
+  const base = 15 + seasonal + Math.sin(i / 3) * 4.5 + (i % 7) * 0.6
+  const jitter = ((i * 17 + 31) % 11 - 5) * 0.4
   return {
     id: `mk-${String(i + 1).padStart(3, '0')}`,
     earTag: `NML-2026-${String(tagNum).padStart(4, '0')}`,
     recordDate,
-    dailyKg: Math.round((13.5 + (i % 12) * 0.55 + (i % 5) * 0.35 + Math.sin(i / 4) * 0.8) * 10) / 10,
+    dailyKg: Math.round(Math.max(6, Math.min(28, base + jitter)) * 10) / 10,
     period: periods[i % periods.length]!,
     remark: i % 9 === 0 ? '早晚两次挤奶' : undefined,
   }

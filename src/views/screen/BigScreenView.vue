@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import './registerEcharts'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { storeToRefs } from 'pinia'
+import type { DataTableColumns } from 'naive-ui'
 import VChart from 'vue-echarts'
 import { useBaseCowStore } from '@/stores/base/cow'
 import { useBaseFarmerStore } from '@/stores/base/farmer'
@@ -15,6 +16,7 @@ import { useProcessTaskStore } from '@/stores/process/task'
 import KpiCard from './components/KpiCard.vue'
 import ScreenPanel from './components/ScreenPanel.vue'
 import ScrollBoard, { type ScrollItem } from './components/ScrollBoard.vue'
+import DetailDialog, { type DetailSection } from './components/DetailDialog.vue'
 
 const cowStore = useBaseCowStore()
 const farmerStore = useBaseFarmerStore()
@@ -76,6 +78,14 @@ const townshipKeysSorted = computed(() => {
   keys.sort((a, b) => (cowTownshipMap.value.get(b) ?? 0) - (cowTownshipMap.value.get(a) ?? 0))
   return keys.slice(0, 12)
 })
+
+const farmerBarEntries = computed(() =>
+  [...farmerTownshipMap.value.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10),
+)
+
+const progressTopRows = computed(() =>
+  [...progressRows.value].sort((a, b) => b.percent - a.percent).slice(0, 8),
+)
 
 const breedAgg = computed(() => {
   const m = new Map<string, number>()
@@ -285,7 +295,7 @@ const optTownshipMain = computed(() => {
 })
 
 const optFarmerBar = computed(() => {
-  const entries = [...farmerTownshipMap.value.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10)
+  const entries = farmerBarEntries.value
   return {
     ...anim,
     color: ['#38bdf8'],
@@ -302,7 +312,7 @@ const optFarmerBar = computed(() => {
 })
 
 const optProgressBar = computed(() => {
-  const rows = [...progressRows.value].sort((a, b) => b.percent - a.percent).slice(0, 8)
+  const rows = progressTopRows.value
   return {
     ...anim,
     color: ['#34d399'],
@@ -371,21 +381,201 @@ const optGauge = computed(() => ({
     },
   ],
 }))
+
+/* --- 详情弹窗 --- */
+const detailShow = ref(false)
+const detailTitle = ref('')
+const detailSections = ref<DetailSection[] | undefined>(undefined)
+const detailColumns = ref<DataTableColumns<Record<string, unknown>> | undefined>(undefined)
+const detailData = ref<Record<string, unknown>[] | undefined>(undefined)
+
+function openDetail(payload: {
+  title: string
+  sections?: DetailSection[]
+  columns?: DataTableColumns<Record<string, unknown>>
+  data?: Record<string, unknown>[]
+}) {
+  detailTitle.value = payload.title
+  detailSections.value = payload.sections
+  detailColumns.value = payload.sections?.length ? undefined : payload.columns
+  detailData.value = payload.sections?.length ? undefined : payload.data
+  detailShow.value = true
+}
+
+function onBreedClick(e: any) {
+  const name = e.name ?? e?.data?.name
+  if (!name) return
+  const list = cows.value.filter((c) => (c.breed || '其他') === name)
+  const columns: DataTableColumns<Record<string, unknown>> = [
+    { title: '耳标号', key: 'earTag', ellipsis: { tooltip: true } },
+    { title: '品种', key: 'breed', width: 100 },
+    { title: '性别', key: 'sex', width: 60 },
+    { title: '月龄', key: 'ageMonths', width: 70 },
+    { title: '养殖户', key: 'farmerName', ellipsis: { tooltip: true } },
+  ]
+  openDetail({
+    title: `品种「${name}」奶牛明细`,
+    columns,
+    data: list.map((r) => ({ ...r })) as Record<string, unknown>[],
+  })
+}
+
+function onMilkLineClick(e: any) {
+  const idx = typeof e.dataIndex === 'number' ? e.dataIndex : -1
+  const pair = idx >= 0 ? milkByDate.value[idx] : undefined
+  if (!pair) return
+  const [dateStr] = pair
+  const rows = milkRows.value.filter((r) => r.recordDate === dateStr)
+  const columns: DataTableColumns<Record<string, unknown>> = [
+    { title: '耳标号', key: 'earTag', ellipsis: { tooltip: true } },
+    { title: '日产奶(kg)', key: 'dailyKg', width: 110 },
+    { title: '泌乳阶段', key: 'period', width: 110 },
+    { title: '日期', key: 'recordDate', width: 120 },
+  ]
+  openDetail({
+    title: `产奶明细 · ${dateStr}`,
+    columns,
+    data: rows.map((r) => ({ ...r })) as Record<string, unknown>[],
+  })
+}
+
+function onImmunityBarClick(e: any) {
+  const idx = typeof e.dataIndex === 'number' ? e.dataIndex : -1
+  const item = idx >= 0 ? immunityByVaccine.value[idx] : undefined
+  if (!item) return
+  const vaccine = item.name
+  const rows = immunityRows.value.filter((r) => r.vaccineName.replace(/\s+/g, ' ').trim() === vaccine)
+  const columns: DataTableColumns<Record<string, unknown>> = [
+    { title: '耳标号', key: 'earTag', ellipsis: { tooltip: true } },
+    { title: '疫苗', key: 'vaccineName', ellipsis: { tooltip: true } },
+    { title: '批次', key: 'batchNo', width: 110 },
+    { title: '注射日', key: 'injectDate', width: 110 },
+    { title: '下次', key: 'nextDate', width: 110 },
+  ]
+  openDetail({
+    title: `免疫记录 · ${vaccine}`,
+    columns,
+    data: rows.map((r) => ({ ...r })) as Record<string, unknown>[],
+  })
+}
+
+function onTownshipMainClick(e: any) {
+  const idx = typeof e.dataIndex === 'number' ? e.dataIndex : -1
+  const keys = townshipKeysSorted.value
+  const township = idx >= 0 ? keys[idx] : undefined
+  if (!township) return
+  const farmersIn = farmers.value.filter((f) => f.townshipName === township)
+  const cowsIn = cows.value.filter((c) => farmersIn.some((f) => f.id === c.farmerId))
+  const farmerCols: DataTableColumns<Record<string, unknown>> = [
+    { title: '户主', key: 'headName', width: 100 },
+    { title: '行政村', key: 'villageName', width: 100 },
+    { title: '电话', key: 'phone', width: 140 },
+    { title: '劳动力', key: 'laborForce', width: 80 },
+  ]
+  const cowCols: DataTableColumns<Record<string, unknown>> = [
+    { title: '耳标号', key: 'earTag', ellipsis: { tooltip: true } },
+    { title: '品种', key: 'breed', width: 100 },
+    { title: '养殖户', key: 'farmerName', ellipsis: { tooltip: true } },
+  ]
+  openDetail({
+    title: `乡镇「${township}」`,
+    sections: [
+      {
+        subtitle: `养殖户（${farmersIn.length} 户）`,
+        columns: farmerCols,
+        data: farmersIn.map((r) => ({ ...r })) as Record<string, unknown>[],
+      },
+      {
+        subtitle: `在档奶牛（${cowsIn.length} 头）`,
+        columns: cowCols,
+        data: cowsIn.map((r) => ({ ...r })) as Record<string, unknown>[],
+      },
+    ],
+  })
+}
+
+function onFarmerBarClick(e: any) {
+  const idx = typeof e.dataIndex === 'number' ? e.dataIndex : -1
+  const entry = idx >= 0 ? farmerBarEntries.value[idx] : undefined
+  if (!entry) return
+  const township = entry[0]
+  const farmersIn = farmers.value.filter((f) => f.townshipName === township)
+  const columns: DataTableColumns<Record<string, unknown>> = [
+    { title: '户主', key: 'headName', width: 100 },
+    { title: '行政村', key: 'villageName', width: 100 },
+    { title: '电话', key: 'phone', width: 140 },
+    { title: '养殖条件', key: 'breedingCondition', ellipsis: { tooltip: true } },
+  ]
+  openDetail({
+    title: `养殖户分布 · ${township}`,
+    columns,
+    data: farmersIn.map((r) => ({ ...r })) as Record<string, unknown>[],
+  })
+}
+
+function onProgressBarClick(e: any) {
+  const idx = typeof e.dataIndex === 'number' ? e.dataIndex : -1
+  const row = idx >= 0 ? progressTopRows.value[idx] : undefined
+  if (!row) return
+  const columns: DataTableColumns<Record<string, unknown>> = [
+    { title: '项目', key: 'projectName', ellipsis: { tooltip: true } },
+    { title: '阶段', key: 'phase', width: 100 },
+    { title: '完成度', key: 'percent', width: 90 },
+    { title: '负责人', key: 'owner', width: 100 },
+    { title: '里程碑', key: 'milestone', ellipsis: { tooltip: true } },
+    { title: '更新', key: 'updateDate', width: 120 },
+  ]
+  openDetail({
+    title: `项目进度 · ${row.projectName}`,
+    columns,
+    data: [{ ...row }] as Record<string, unknown>[],
+  })
+}
+
+function onFundStackClick(e: any) {
+  const idx = typeof e.dataIndex === 'number' ? e.dataIndex : -1
+  const cat = idx >= 0 ? fundByCategory.value[idx] : undefined
+  if (!cat) return
+  const rows = fundRows.value.filter((r) => r.category === cat.name)
+  const columns: DataTableColumns<Record<string, unknown>> = [
+    { title: '项目', key: 'projectName', ellipsis: { tooltip: true } },
+    { title: '金额', key: 'amount', width: 120 },
+    { title: '日期', key: 'happenDate', width: 110 },
+    { title: '凭证号', key: 'voucherNo', width: 120 },
+  ]
+  openDetail({
+    title: `资金流水 · 类别「${cat.name}」`,
+    columns,
+    data: rows.map((r) => ({ ...r })) as Record<string, unknown>[],
+  })
+}
+
+function onGaugeClick() {
+  const rows = [...progressRows.value].sort((a, b) => b.percent - a.percent)
+  const columns: DataTableColumns<Record<string, unknown>> = [
+    { title: '项目', key: 'projectName', ellipsis: { tooltip: true } },
+    { title: '阶段', key: 'phase', width: 100 },
+    { title: '完成度', key: 'percent', width: 90 },
+    { title: '负责人', key: 'owner', width: 100 },
+    { title: '更新', key: 'updateDate', width: 120 },
+  ]
+  openDetail({
+    title: '全部项目进度',
+    columns,
+    data: rows.map((r) => ({ ...r })) as Record<string, unknown>[],
+  })
+}
 </script>
 
 <template>
   <div class="big-screen">
-    <section class="big-screen__hero">
-      <h1 class="big-screen__hero-title">养殖运营实时总览</h1>
-      <p class="big-screen__hero-desc">关键指标 · 多源汇聚 · 演示数据与当前会话内数据一致</p>
-    </section>
-
     <section class="big-screen__kpis">
-      <KpiCard label="在档奶牛" :target="cows.length" unit="头" />
-      <KpiCard label="登记养殖户" :target="farmers.length" unit="户" />
-      <KpiCard label="覆盖乡镇" :target="townshipCount" unit="个" />
-      <KpiCard label="覆盖行政村" :target="villageCount" unit="个" />
+      <KpiCard variant="row" label="在档奶牛" :target="cows.length" unit="头" />
+      <KpiCard variant="row" label="登记养殖户" :target="farmers.length" unit="户" />
+      <KpiCard variant="row" label="覆盖乡镇" :target="townshipCount" unit="个" />
+      <KpiCard variant="row" label="覆盖行政村" :target="villageCount" unit="个" />
       <KpiCard
+        variant="row"
         label="日产奶量(最近统计日)"
         :target="latestDayMilkKg"
         unit="kg"
@@ -393,6 +583,7 @@ const optGauge = computed(() => ({
         sub="按产奶记录最近日期汇总"
       />
       <KpiCard
+        variant="row"
         label="资金流水合计"
         :target="fundTotal"
         unit="元"
@@ -403,83 +594,86 @@ const optGauge = computed(() => ({
 
     <div class="big-screen__cols">
       <aside class="big-screen__col big-screen__col--side">
-        <ScreenPanel title="牛群品种分布" hint="南丁格尔玫瑰">
-          <VChart class="big-screen__chart big-screen__chart--sm" :option="optBreedRose" autoresize />
+        <ScreenPanel variant="side" title="牛群品种分布" hint="南丁格尔玫瑰">
+          <div class="big-screen__panel-chart">
+            <VChart class="big-screen__chart" :option="optBreedRose" autoresize @click="onBreedClick" />
+          </div>
         </ScreenPanel>
-        <ScreenPanel title="产奶趋势" hint="按日汇总(kg)">
-          <VChart class="big-screen__chart big-screen__chart--md" :option="optMilkLine" autoresize />
+        <ScreenPanel variant="side" title="产奶趋势" hint="按日汇总(kg)">
+          <div class="big-screen__panel-chart">
+            <VChart class="big-screen__chart" :option="optMilkLine" autoresize @click="onMilkLineClick" />
+          </div>
         </ScreenPanel>
-        <ScreenPanel title="免疫剂次" hint="按疫苗名称">
-          <VChart class="big-screen__chart big-screen__chart--md" :option="optImmunityBar" autoresize />
+        <ScreenPanel variant="side" title="免疫剂次" hint="按疫苗名称">
+          <div class="big-screen__panel-chart">
+            <VChart class="big-screen__chart" :option="optImmunityBar" autoresize @click="onImmunityBarClick" />
+          </div>
         </ScreenPanel>
       </aside>
 
       <main class="big-screen__col big-screen__col--center">
-        <ScreenPanel title="乡镇养殖对比" hint="存栏与户数">
-          <VChart class="big-screen__chart big-screen__chart--lg" :option="optTownshipMain" autoresize />
+        <ScreenPanel variant="center" title="乡镇养殖对比" hint="存栏与户数">
+          <div class="big-screen__panel-chart big-screen__panel-chart--tall">
+            <VChart class="big-screen__chart" :option="optTownshipMain" autoresize @click="onTownshipMainClick" />
+          </div>
         </ScreenPanel>
         <div class="big-screen__center-row">
-          <ScreenPanel class="big-screen__gauge-wrap" title="综合进度" hint="各项目百分比均值">
-            <VChart class="big-screen__chart big-screen__chart--gauge" :option="optGauge" autoresize />
+          <ScreenPanel variant="center" class="big-screen__gauge-wrap" title="综合进度" hint="各项目百分比均值">
+            <div class="big-screen__panel-chart big-screen__panel-chart--gauge">
+              <VChart class="big-screen__chart" :option="optGauge" autoresize @click="onGaugeClick" />
+            </div>
           </ScreenPanel>
-          <ScreenPanel title="运行动态" hint="日志与任务">
+          <ScreenPanel variant="center" title="运行动态" hint="日志与任务">
             <ScrollBoard :items="scrollItems" />
           </ScreenPanel>
         </div>
       </main>
 
       <aside class="big-screen__col big-screen__col--side">
-        <ScreenPanel title="养殖户分布" hint="按乡镇">
-          <VChart class="big-screen__chart big-screen__chart--sm" :option="optFarmerBar" autoresize />
+        <ScreenPanel variant="side" title="养殖户分布" hint="按乡镇">
+          <div class="big-screen__panel-chart">
+            <VChart class="big-screen__chart" :option="optFarmerBar" autoresize @click="onFarmerBarClick" />
+          </div>
         </ScreenPanel>
-        <ScreenPanel title="项目进度" hint="TOP 按完成度">
-          <VChart class="big-screen__chart big-screen__chart--md" :option="optProgressBar" autoresize />
+        <ScreenPanel variant="side" title="项目进度" hint="TOP 按完成度">
+          <div class="big-screen__panel-chart">
+            <VChart class="big-screen__chart" :option="optProgressBar" autoresize @click="onProgressBarClick" />
+          </div>
         </ScreenPanel>
-        <ScreenPanel title="资金流向" hint="按类别收支堆叠">
-          <VChart class="big-screen__chart big-screen__chart--md" :option="optFundStack" autoresize />
+        <ScreenPanel variant="side" title="资金流向" hint="按类别收支堆叠">
+          <div class="big-screen__panel-chart">
+            <VChart class="big-screen__chart" :option="optFundStack" autoresize @click="onFundStackClick" />
+          </div>
         </ScreenPanel>
       </aside>
     </div>
+
+    <DetailDialog
+      v-model:show="detailShow"
+      :title="detailTitle"
+      :sections="detailSections"
+      :columns="detailColumns"
+      :data="detailData"
+    />
   </div>
 </template>
 
 <style scoped>
 .big-screen {
+  height: 100%;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  max-width: 110rem;
-  margin: 0 auto;
-  min-height: min-content;
-}
-
-.big-screen__hero {
-  text-align: center;
-  padding: 0.15rem 0 0.25rem;
-}
-
-.big-screen__hero-title {
+  gap: 0.45rem;
+  max-width: none;
   margin: 0;
-  font-size: clamp(1.1rem, 2.4vw, 1.6rem);
-  font-weight: 700;
-  letter-spacing: 0.12em;
-  background: linear-gradient(90deg, #fef3c7, #22d3ee, #a5f3fc);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-
-.big-screen__hero-desc {
-  margin: 0.35rem 0 0;
-  font-size: 0.8125rem;
-  color: rgba(226, 232, 240, 0.58);
-  letter-spacing: 0.06em;
 }
 
 .big-screen__kpis {
+  flex-shrink: 0;
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 0.6rem;
+  gap: 0.4rem;
 }
 
 @media (max-width: 96rem) {
@@ -495,33 +689,52 @@ const optGauge = computed(() => ({
 }
 
 .big-screen__cols {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 2.1fr) minmax(0, 1fr);
-  gap: 0.65rem;
+  gap: 0.45rem;
   align-items: stretch;
 }
 
 @media (max-width: 90rem) {
   .big-screen__cols {
     grid-template-columns: 1fr;
+    min-height: auto;
   }
 }
 
 .big-screen__col {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
+  gap: 0.45rem;
   min-width: 0;
+  min-height: 0;
+}
+
+.big-screen__col--side .screen-panel {
+  flex: 1;
+  min-height: 0;
 }
 
 .big-screen__col--center {
   min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.big-screen__col--center > .screen-panel:first-child {
+  flex: 1.35;
+  min-height: 0;
 }
 
 .big-screen__center-row {
+  flex: 1;
+  min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
-  gap: 0.65rem;
+  gap: 0.45rem;
   align-items: stretch;
 }
 
@@ -531,27 +744,33 @@ const optGauge = computed(() => ({
   }
 }
 
+.big-screen__center-row .screen-panel {
+  min-height: 0;
+}
+
 .big-screen__gauge-wrap {
-  min-height: 14rem;
+  min-height: 0;
+}
+
+.big-screen__panel-chart {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.big-screen__panel-chart--tall {
+  flex: 1.15;
+}
+
+.big-screen__panel-chart--gauge {
+  min-height: 0;
 }
 
 .big-screen__chart {
+  flex: 1;
+  min-height: 0;
   width: 100%;
-}
-
-.big-screen__chart--sm {
-  height: 15rem;
-}
-
-.big-screen__chart--md {
-  height: 17rem;
-}
-
-.big-screen__chart--lg {
-  height: 22rem;
-}
-
-.big-screen__chart--gauge {
-  height: 13.5rem;
 }
 </style>

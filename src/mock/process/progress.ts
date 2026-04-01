@@ -31,11 +31,13 @@ const projects = [
 
 const phases = ['土建施工', '设备采购', '安装调试', '试运行', '验收', '收尾']
 
+const percents = [100, 92, 85, 78, 68, 60, 52, 45, 35, 28, 20, 15, 88, 72, 40]
+
 export const mockProgresses: ProgressRow[] = Array.from({ length: 15 }, (_, i) => ({
   id: `pg-${String(i + 1).padStart(3, '0')}`,
   projectName: projects[i]!,
   phase: phases[i % phases.length]!,
-  percent: Math.min(95, 20 + (i * 7) % 75),
+  percent: percents[i]!,
   owner: i % 2 === 0 ? '县项目办' : '乡镇实施组',
   milestone: `里程碑-${i + 1}`,
   updateDate: `2026-03-${String((i % 28) + 1).padStart(2, '0')}`,

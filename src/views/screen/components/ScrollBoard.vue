@@ -48,7 +48,10 @@ const loopItems = computed(() => {
 
 <style scoped>
 .scroll-board {
-  min-height: 8rem;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .scroll-board__empty {
@@ -59,7 +62,8 @@ const loopItems = computed(() => {
 }
 
 .scroll-board__viewport {
-  height: calc(var(--row-h) * 6);
+  flex: 1;
+  min-height: 0;
   overflow: hidden;
   mask-image: linear-gradient(
     180deg,

@@ -99,7 +99,7 @@ function handleUserDropdown(key: string | number) {
   <NLayout class="app-root">
     <NLayoutHeader bordered class="app-topbar">
       <div class="app-topbar__left">
-        <RouterLink to="/screen" class="app-topbar__logo app-topbar__logo--link">
+        <RouterLink to="/screen/overview" class="app-topbar__logo app-topbar__logo--link">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 32 32"

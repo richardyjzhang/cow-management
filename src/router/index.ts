@@ -33,12 +33,23 @@ const router = createRouter({
     {
       path: '/screen',
       component: ScreenLayout,
+      redirect: '/screen/overview',
       meta: { title: '数据大屏' },
       children: [
         {
-          path: '',
-          name: 'screen',
+          path: 'overview',
+          name: 'screen-overview',
           component: () => import('@/views/screen/BigScreenView.vue'),
+        },
+        {
+          path: 'breeding',
+          name: 'screen-breeding',
+          component: () => import('@/views/screen/BreedingScreenView.vue'),
+        },
+        {
+          path: 'fund',
+          name: 'screen-fund',
+          component: () => import('@/views/screen/FundScreenView.vue'),
         },
       ],
     },

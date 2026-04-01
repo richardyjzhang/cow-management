@@ -1,9 +1,18 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 const router = useRouter()
+const route = useRoute()
 const clock = ref('')
+
+const screenTabs = [
+  { path: '/screen/overview', label: '总览' },
+  { path: '/screen/breeding', label: '养殖' },
+  { path: '/screen/fund', label: '资金项目' },
+] as const
+
+const activePath = computed(() => route.path)
 
 let timer: ReturnType<typeof setInterval> | undefined
 
@@ -37,11 +46,29 @@ onUnmounted(() => {
   <div class="screen-root">
     <header class="screen-root__header">
       <div class="screen-root__brand">
-        <span class="screen-root__title">优质奶牛管理信息系统</span>
-        <span class="screen-root__tag">数据可视化大屏</span>
+        <div class="screen-root__title-row">
+          <span class="screen-root__title">优质奶牛管理信息系统</span>
+          <span class="screen-root__tag">数据可视化大屏</span>
+        </div>
+        <p class="screen-root__subtitle">关键指标 · 多源汇聚 · 演示数据与当前会话内数据一致</p>
       </div>
-      <div class="screen-root__clock">{{ clock }}</div>
-      <button type="button" class="screen-root__back" @click="goBack">返回管理端</button>
+
+      <nav class="screen-root__tabs" aria-label="子屏切换">
+        <RouterLink
+          v-for="tab in screenTabs"
+          :key="tab.path"
+          :to="tab.path"
+          class="screen-root__tab"
+          :class="{ 'screen-root__tab--active': activePath === tab.path }"
+        >
+          {{ tab.label }}
+        </RouterLink>
+      </nav>
+
+      <div class="screen-root__actions">
+        <div class="screen-root__clock">{{ clock }}</div>
+        <button type="button" class="screen-root__back" @click="goBack">返回管理端</button>
+      </div>
     </header>
     <main class="screen-root__main">
       <RouterView />
@@ -58,7 +85,9 @@ onUnmounted(() => {
   --screen-gold: #e8d4a8;
   --screen-text: #e8f4ff;
 
-  min-height: 100vh;
+  height: 100vh;
+  max-height: 100vh;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   color: var(--screen-text);
@@ -95,26 +124,54 @@ onUnmounted(() => {
 .screen-root__header {
   position: relative;
   z-index: 1;
+  flex-shrink: 0;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: minmax(0, 1.2fr) auto minmax(0, 1fr);
   align-items: center;
-  gap: 1rem;
-  padding: 0.75rem 1.5rem;
+  gap: 0.75rem 1rem;
+  padding: 0.5rem 1rem 0.55rem;
   border-bottom: 1px solid rgba(34, 211, 238, 0.25);
   box-shadow: 0 0 24px rgba(34, 211, 238, 0.08);
   background: linear-gradient(90deg, rgba(6, 20, 40, 0.92), rgba(10, 28, 52, 0.75));
 }
 
+@media (max-width: 72rem) {
+  .screen-root__header {
+    grid-template-columns: 1fr;
+    justify-items: stretch;
+  }
+
+  .screen-root__tabs {
+    order: 3;
+    justify-content: center;
+  }
+
+  .screen-root__actions {
+    order: 2;
+    justify-content: space-between;
+    width: 100%;
+  }
+}
+
 .screen-root__brand {
   display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.screen-root__title-row {
+  display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 0.75rem;
+  gap: 0.5rem;
   min-width: 0;
 }
 
 .screen-root__title {
   position: relative;
-  font-size: clamp(1rem, 2vw, 1.35rem);
+  font-size: clamp(0.95rem, 1.6vw, 1.25rem);
   font-weight: 700;
   letter-spacing: 0.06em;
   white-space: nowrap;
@@ -149,29 +206,89 @@ onUnmounted(() => {
 }
 
 .screen-root__tag {
-  font-size: 0.75rem;
-  padding: 0.15rem 0.5rem;
+  font-size: 0.6875rem;
+  padding: 0.1rem 0.45rem;
   border: 1px solid rgba(232, 212, 168, 0.45);
   border-radius: 999px;
   color: var(--screen-gold);
   letter-spacing: 0.08em;
   opacity: 0.95;
+  flex-shrink: 0;
+}
+
+.screen-root__subtitle {
+  margin: 0;
+  font-size: 0.6875rem;
+  color: rgba(226, 232, 240, 0.58);
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+  max-width: 36rem;
+}
+
+.screen-root__tabs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.screen-root__tab {
+  padding: 0.35rem 0.85rem;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(34, 211, 238, 0.28);
+  background: rgba(6, 28, 48, 0.55);
+  color: rgba(165, 243, 252, 0.85);
+  font-size: 0.8125rem;
+  letter-spacing: 0.06em;
+  text-decoration: none;
+  transition:
+    background 0.2s,
+    border-color 0.2s,
+    box-shadow 0.2s,
+    color 0.2s;
+  white-space: nowrap;
+}
+
+.screen-root__tab:hover {
+  border-color: rgba(56, 189, 248, 0.55);
+  color: #ecfeff;
+}
+
+.screen-root__tab--active {
+  border-color: rgba(34, 211, 238, 0.75);
+  background: rgba(34, 211, 238, 0.12);
+  color: #fef9c3;
+  box-shadow:
+    0 0 16px rgba(34, 211, 238, 0.25),
+    inset 0 0 12px rgba(34, 211, 238, 0.08);
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.45);
+}
+
+.screen-root__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  min-width: 0;
 }
 
 .screen-root__clock {
   font-variant-numeric: tabular-nums;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
   color: rgba(232, 244, 255, 0.85);
   letter-spacing: 0.04em;
+  white-space: nowrap;
 }
 
 .screen-root__back {
   cursor: pointer;
+  flex-shrink: 0;
   border: 1px solid rgba(34, 211, 238, 0.5);
   background: rgba(6, 40, 60, 0.5);
   color: #a5f3fc;
-  font-size: 0.875rem;
-  padding: 0.4rem 0.9rem;
+  font-size: 0.8125rem;
+  padding: 0.35rem 0.75rem;
   border-radius: 0.375rem;
   transition:
     background 0.2s,
@@ -190,7 +307,9 @@ onUnmounted(() => {
   z-index: 1;
   flex: 1;
   min-height: 0;
-  padding: 1rem 1.25rem 1.25rem;
-  overflow: auto;
+  padding: 0.5rem 0.75rem 0.6rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 </style>
