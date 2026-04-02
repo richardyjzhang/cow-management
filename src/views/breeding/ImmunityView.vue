@@ -144,7 +144,7 @@ function confirmDelete(row: ImmunityRow) {
   })
 }
 
-const columns = computed<DataTableColumns<ImmunityRow>>(() => [
+const columns = computed((): DataTableColumns<ImmunityRow> => [
   { title: '耳标号', key: 'earTag', width: 140, ellipsis: { tooltip: true } },
   { title: '疫苗', key: 'vaccineName', minWidth: 140, ellipsis: { tooltip: true } },
   { title: '批号', key: 'batchNo', width: 120, ellipsis: { tooltip: true } },

@@ -41,7 +41,7 @@ export const useBaseFarmerStore = defineStore('baseFarmer', () => {
     farmers.value[i] = next
     if (patch.headName !== undefined) {
       const cowStore = useBaseCowStore()
-      cowStore.syncFarmerName(id, next.headName)
+      cowStore.syncFarmerName(id, next.headName, next.headNameBo)
     }
     return true
   }

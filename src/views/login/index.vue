@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { computed, onUnmounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { NButton, useMessage } from 'naive-ui'
+import LanguageSwitch from '@/components/LanguageSwitch.vue'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const message = useMessage()
 const authStore = useAuthStore()
+const { t } = useI18n()
 
 type LoginMode = 'account' | 'sms'
 
@@ -32,7 +35,9 @@ const qrCells = Array.from({ length: QR_N * QR_N }, (_, i) => {
   return (x * 13 + y * 17 + x * y) % 3 !== 0
 })
 
-const sendCodeLabel = computed(() => (countdown.value > 0 ? `${countdown.value}s 后重发` : '发送验证码'))
+const sendCodeLabel = computed(() =>
+  countdown.value > 0 ? t('login.sendCodeCountdown', { n: countdown.value }) : t('login.sendCode'),
+)
 
 function clearCountdown() {
   if (countdownTimer) {
@@ -45,7 +50,7 @@ function sendSmsCode() {
   if (countdown.value > 0) return
   const p = phone.value.trim()
   if (!/^1\d{10}$/.test(p)) {
-    message.warning('请输入正确的手机号')
+    message.warning(t('login.msgInvalidPhone'))
     return
   }
   countdown.value = 60
@@ -53,7 +58,7 @@ function sendSmsCode() {
     countdown.value -= 1
     if (countdown.value <= 0) clearCountdown()
   }, 1000)
-  message.success('验证码已发送（演示）')
+  message.success(t('login.msgSmsSent'))
 }
 
 onUnmounted(() => {
@@ -63,17 +68,17 @@ onUnmounted(() => {
 async function handleLogin() {
   if (mode.value === 'account') {
     if (!username.value.trim() || !password.value) {
-      message.warning('请输入账号和密码')
+      message.warning(t('login.msgNeedAccount'))
       return
     }
   } else {
     const p = phone.value.trim()
     if (!/^1\d{10}$/.test(p)) {
-      message.warning('请输入正确的手机号')
+      message.warning(t('login.msgInvalidPhone'))
       return
     }
     if (!smsCode.value.trim()) {
-      message.warning('请输入验证码')
+      message.warning(t('login.msgNeedSms'))
       return
     }
   }
@@ -86,10 +91,15 @@ async function handleLogin() {
     loading.value = false
   }
 }
+
 </script>
 
 <template>
   <div class="login-page flex min-h-screen w-full bg-[#0a1920]">
+    <div class="absolute right-6 top-6 z-20">
+      <LanguageSwitch variant="dark" />
+    </div>
+
     <!-- 左侧背景（约 70%） -->
     <div class="login-page__hero relative min-h-screen min-w-0 flex-[7] max-lg:hidden">
       <img src="/login-bg.png" alt="" class="absolute inset-0 h-full w-full object-cover" />
@@ -103,7 +113,7 @@ async function handleLogin() {
       <div class="flex flex-1 flex-col justify-center">
         <header class="mb-10">
           <h1 class="m-0 text-xl font-semibold leading-snug tracking-wide text-white">
-            优质奶牛管理系统
+            {{ t('login.title') }}
           </h1>
         </header>
 
@@ -119,7 +129,7 @@ async function handleLogin() {
             "
             @click="mode = 'account'"
           >
-            账号登录
+            {{ t('login.tabAccount') }}
           </button>
           <button
             type="button"
@@ -131,29 +141,29 @@ async function handleLogin() {
             "
             @click="mode = 'sms'"
           >
-            验证码登录
+            {{ t('login.tabSms') }}
           </button>
         </div>
 
         <form class="flex flex-col gap-6" @submit.prevent="handleLogin">
           <template v-if="mode === 'account'">
             <div class="login-field flex items-baseline gap-3 border-b border-white/35 pb-2 focus-within:border-[#22c55e]">
-              <label class="w-14 shrink-0 text-[15px] text-white/95">账号</label>
+              <label class="w-24 shrink-0 text-[15px] text-white/95">{{ t('login.account') }}</label>
               <input
                 v-model="username"
                 type="text"
                 autocomplete="username"
-                placeholder="请输入账号"
+                :placeholder="t('login.accountPlaceholder')"
                 class="min-w-0 flex-1 border-0 bg-transparent py-1 text-[15px] text-white outline-none placeholder:text-white/45"
               />
             </div>
             <div class="login-field flex items-baseline gap-3 border-b border-white/35 pb-2 focus-within:border-[#22c55e]">
-              <label class="w-14 shrink-0 text-[15px] text-white/95">密码</label>
+              <label class="w-24 shrink-0 text-[15px] text-white/95">{{ t('login.password') }}</label>
               <input
                 v-model="password"
                 type="password"
                 autocomplete="current-password"
-                placeholder="请输入密码"
+                :placeholder="t('login.passwordPlaceholder')"
                 class="min-w-0 flex-1 border-0 bg-transparent py-1 text-[15px] text-white outline-none placeholder:text-white/45"
               />
             </div>
@@ -161,28 +171,28 @@ async function handleLogin() {
 
           <template v-else>
             <div class="login-field flex items-baseline gap-3 border-b border-white/35 pb-2 focus-within:border-[#22c55e]">
-              <label class="w-14 shrink-0 text-[15px] text-white/95">手机号</label>
+              <label class="w-24 shrink-0 text-[15px] text-white/95">{{ t('login.phone') }}</label>
               <input
                 v-model="phone"
                 type="tel"
                 maxlength="11"
                 inputmode="numeric"
                 autocomplete="tel"
-                placeholder="请输入手机号"
+                :placeholder="t('login.phonePlaceholder')"
                 class="min-w-0 flex-1 border-0 bg-transparent py-1 text-[15px] text-white outline-none placeholder:text-white/45"
               />
             </div>
             <div
               class="login-field flex items-baseline gap-3 border-b border-white/35 pb-2 focus-within:border-[#22c55e]"
             >
-              <label class="w-14 shrink-0 text-[15px] text-white/95">验证码</label>
+              <label class="w-24 shrink-0 text-[15px] text-white/95">{{ t('login.smsCode') }}</label>
               <input
                 v-model="smsCode"
                 type="text"
                 maxlength="6"
                 inputmode="numeric"
                 autocomplete="one-time-code"
-                placeholder="请输入验证码"
+                :placeholder="t('login.smsCodePlaceholder')"
                 class="min-w-0 flex-1 border-0 bg-transparent py-1 text-[15px] text-white outline-none placeholder:text-white/45"
               />
               <button
@@ -204,7 +214,7 @@ async function handleLogin() {
             class="login-submit mt-2 !h-11 !rounded-md !text-[16px] !font-medium"
             block
           >
-            登录
+            {{ t('login.submit') }}
           </NButton>
         </form>
       </div>

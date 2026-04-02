@@ -21,8 +21,10 @@ import { ArrowBackOutline, AddOutline, CreateOutline, TrashOutline } from '@vico
 import { useBaseRegionStore } from '@/stores/base/region'
 import { useBaseFarmerStore } from '@/stores/base/farmer'
 import { useFrontendPagination } from '@/composables/useFrontendPagination'
+import { useMockBilingual } from '@/composables/useMockBilingual'
 import type { RegionRow } from '@/mock/base/region'
 
+const { pick, locale } = useMockBilingual()
 const route = useRoute()
 const router = useRouter()
 const regionStore = useBaseRegionStore()
@@ -52,7 +54,9 @@ const filtered = computed(() => {
       r.name.toLowerCase().includes(lower) ||
       r.code.includes(q) ||
       (r.contact?.includes(q) ?? false) ||
-      (r.groupNames?.includes(q) ?? false),
+      (r.groupNames?.includes(q) ?? false) ||
+      (r.nameBo?.includes(q) ?? false) ||
+      (r.groupNamesBo?.includes(q) ?? false),
   )
 })
 
@@ -119,7 +123,7 @@ function confirmDelete(row: RegionRow) {
   }
   dialog.warning({
     title: '确认删除',
-    content: `确定删除行政村「${row.name}」？删除后不可恢复。`,
+    content: `确定删除行政村「${pick(row.name, row.nameBo)}」？删除后不可恢复。`,
     positiveText: '确定删除',
     negativeText: '取消',
     onPositiveClick: () => {
@@ -129,12 +133,17 @@ function confirmDelete(row: RegionRow) {
   })
 }
 
-const columns = computed<DataTableColumns<RegionRow>>(() => [
+const columns = computed((): DataTableColumns<RegionRow> => {
+  void locale.value
+  return [
   {
     title: '行政村名称',
     key: 'name',
     minWidth: 160,
     ellipsis: { tooltip: true },
+    render(row) {
+      return pick(row.name, row.nameBo)
+    },
   },
   {
     title: '区划编码',
@@ -161,7 +170,10 @@ const columns = computed<DataTableColumns<RegionRow>>(() => [
     minWidth: 200,
     ellipsis: { tooltip: true },
     render(row) {
-      return row.groupNames ?? '—'
+      const g = row.groupNames
+      const gBo = row.groupNamesBo
+      if (!g && !gBo) return '—'
+      return pick(g ?? '', gBo)
     },
   },
   {
@@ -205,7 +217,8 @@ const columns = computed<DataTableColumns<RegionRow>>(() => [
       )
     },
   },
-])
+]
+})
 
 function goBack() {
   router.push({ name: 'base-region' })
@@ -221,7 +234,7 @@ function goBack() {
             <NIcon :component="ArrowBackOutline" />
           </template>
         </NButton>
-        <span>行政村 · {{ township.name }}</span>
+        <span>行政村 · {{ pick(township.name, township.nameBo) }}</span>
       </NSpace>
     </template>
     <template #header-extra>

@@ -22,8 +22,10 @@ import { SearchOutline, AddOutline, CreateOutline, TrashOutline } from '@vicons/
 import { useBaseCowStore } from '@/stores/base/cow'
 import { useBreedingMilkStore } from '@/stores/breeding/milk'
 import { useFrontendPagination } from '@/composables/useFrontendPagination'
+import { useMockBilingual } from '@/composables/useMockBilingual'
 import type { MilkRow } from '@/mock/breeding/milk'
 
+const { pick, locale } = useMockBilingual()
 const cowStore = useBaseCowStore()
 const milkStore = useBreedingMilkStore()
 const { cows } = storeToRefs(cowStore)
@@ -41,7 +43,9 @@ const filtered = computed(() => {
     (r) =>
       r.earTag.includes(q) ||
       r.period.toLowerCase().includes(lower) ||
+      (r.periodBo?.includes(q) ?? false) ||
       (r.remark?.includes(q) ?? false) ||
+      (r.remarkBo?.includes(q) ?? false) ||
       String(r.dailyKg).includes(q),
   )
 })
@@ -50,12 +54,13 @@ const rowTotal = computed(() => filtered.value.length)
 const { pagination, resetPage } = useFrontendPagination(rowTotal)
 watch(keyword, () => resetPage())
 
-const earTagOptions = computed(() =>
-  cows.value.map((c) => ({
-    label: `${c.earTag}（${c.farmerName}）`,
+const earTagOptions = computed(() => {
+  void locale.value
+  return cows.value.map((c) => ({
+    label: `${c.earTag}（${pick(c.farmerName, c.farmerNameBo)}）`,
     value: c.earTag,
-  })),
-)
+  }))
+})
 
 const modalShow = ref(false)
 const modalMode = ref<'add' | 'edit'>('add')
@@ -139,7 +144,9 @@ function confirmDelete(row: MilkRow) {
   })
 }
 
-const columns = computed<DataTableColumns<MilkRow>>(() => [
+const columns = computed((): DataTableColumns<MilkRow> => {
+  void locale.value
+  return [
   { title: '耳标号', key: 'earTag', width: 140, ellipsis: { tooltip: true } },
   { title: '记录日期', key: 'recordDate', width: 120 },
   {
@@ -151,14 +158,25 @@ const columns = computed<DataTableColumns<MilkRow>>(() => [
       return row.dailyKg.toFixed(1)
     },
   },
-  { title: '泌乳阶段', key: 'period', minWidth: 120, ellipsis: { tooltip: true } },
+  {
+    title: '泌乳阶段',
+    key: 'period',
+    minWidth: 120,
+    ellipsis: { tooltip: true },
+    render(row) {
+      return pick(row.period, row.periodBo)
+    },
+  },
   {
     title: '备注',
     key: 'remark',
     minWidth: 100,
     ellipsis: { tooltip: true },
     render(row) {
-      return row.remark ?? '—'
+      const zh = row.remark
+      const bo = row.remarkBo
+      if (!zh && !bo) return '—'
+      return pick(zh ?? '', bo)
     },
   },
   {
@@ -202,7 +220,8 @@ const columns = computed<DataTableColumns<MilkRow>>(() => [
       )
     },
   },
-])
+]
+})
 
 function handleSearch() {
   //

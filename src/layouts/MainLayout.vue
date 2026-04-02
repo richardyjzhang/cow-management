@@ -13,9 +13,12 @@ import {
 } from 'naive-ui'
 import { LogOutOutline, PersonOutline, CloseOutline } from '@vicons/ionicons5'
 import { menuConfig, type MenuItemConfig } from '@/router/menu'
+import LanguageSwitch from '@/components/LanguageSwitch.vue'
 import { useTabsStore } from '@/stores/tabs'
 import { useAuthStore } from '@/stores/auth'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const router = useRouter()
 const authStore = useAuthStore()
 const route = useRoute()
@@ -24,8 +27,8 @@ const tabsStore = useTabsStore()
 watch(
   () => route.path,
   (path) => {
-    const title = typeof route.meta.title === 'string' ? route.meta.title : path
-    tabsStore.addTab(path, title)
+    const titleKey = typeof route.meta.titleKey === 'string' ? route.meta.titleKey : ''
+    if (titleKey) tabsStore.addTab(path, titleKey)
   },
   { immediate: true },
 )
@@ -36,7 +39,7 @@ function renderIcon(icon: Component) {
 
 function buildMenuOptions(items: MenuItemConfig[]): MenuOption[] {
   return items.map((item) => ({
-    label: item.label,
+    label: t(item.titleKey),
     key: item.key,
     icon: renderIcon(item.icon),
     children: item.children ? buildMenuOptions(item.children) : undefined,
@@ -79,13 +82,13 @@ function handleTabMousedown(e: MouseEvent, path: string) {
   }
 }
 
-const userDropdownOptions = [
+const userDropdownOptions = computed(() => [
   {
-    label: '退出登录',
+    label: t('layout.logout'),
     key: 'logout',
     icon: renderIcon(LogOutOutline),
   },
-]
+])
 
 function handleUserDropdown(key: string | number) {
   if (key === 'logout') {
@@ -114,15 +117,16 @@ function handleUserDropdown(key: string | number) {
             <circle cx="19" cy="14" r="1.2" fill="currentColor" />
             <ellipse cx="16" cy="17" rx="2" ry="1.2" fill="rgba(255,255,255,0.5)" />
           </svg>
-          <span class="app-topbar__name">优质奶牛管理信息系统</span>
+          <span class="app-topbar__name">{{ t('layout.appTitle') }}</span>
         </RouterLink>
       </div>
       <div class="app-topbar__right">
-        <span class="app-topbar__hint">Cow Management System</span>
+        <span class="app-topbar__hint">{{ t('layout.appSubtitle') }}</span>
+        <LanguageSwitch variant="light" />
         <NDropdown :options="userDropdownOptions" trigger="click" @select="handleUserDropdown">
           <div class="app-topbar__user">
             <NIcon :component="PersonOutline" :size="18" />
-            <span>管理员</span>
+            <span>{{ t('layout.admin') }}</span>
           </div>
         </NDropdown>
       </div>
@@ -157,7 +161,7 @@ function handleUserDropdown(key: string | number) {
               @click="handleTabClick(tab.path)"
               @mousedown="handleTabMousedown($event, tab.path)"
             >
-              <span class="tab-item__title">{{ tab.title }}</span>
+              <span class="tab-item__title">{{ t(tab.titleKey) }}</span>
               <span
                 v-if="tabsStore.tabs.length > 1"
                 class="tab-item__close"

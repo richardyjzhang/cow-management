@@ -1,20 +1,27 @@
 /** 养殖户 mock：行政村 → 户 两级（通过 villageId 关联） */
 
+import { mockFarmerBoById } from './farmer-bo'
+
 export interface FarmerRow {
   id: string
   villageId: string
   villageName: string
+  villageNameBo?: string
   townshipName: string
+  townshipNameBo?: string
   headName: string
+  headNameBo?: string
   idCard: string
   phone: string
   familySize: number
   laborForce: number
   breedingCondition: string
+  breedingConditionBo?: string
   remark?: string
+  remarkBo?: string
 }
 
-export const mockFarmers: FarmerRow[] = [
+const mockFarmersZh: FarmerRow[] = [
   {
     id: 'fm-001',
     villageId: 'vl-xingfu',
@@ -196,3 +203,8 @@ export const mockFarmers: FarmerRow[] = [
     breedingCondition: '饲草料基地约5亩',
   },
 ]
+
+export const mockFarmers: FarmerRow[] = mockFarmersZh.map((r) => ({
+  ...r,
+  ...mockFarmerBoById[r.id],
+}))

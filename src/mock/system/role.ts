@@ -1,13 +1,17 @@
 /** 角色权限 */
 
+import { mockRoleBoById } from './role-bo'
+
 export interface RoleRow {
   id: string
   roleName: string
+  roleNameBo?: string
   permKeys: string
   remark?: string
+  remarkBo?: string
 }
 
-export const mockRoles: RoleRow[] = [
+const mockRolesZh: RoleRow[] = [
   {
     id: 'rl-001',
     roleName: '超级管理员',
@@ -99,3 +103,8 @@ export const mockRoles: RoleRow[] = [
     remark: '日志与导出',
   },
 ]
+
+export const mockRoles: RoleRow[] = mockRolesZh.map((r) => ({
+  ...r,
+  ...mockRoleBoById[r.id],
+}))

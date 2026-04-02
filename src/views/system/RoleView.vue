@@ -19,8 +19,10 @@ import { SearchOutline, AddOutline, CreateOutline, TrashOutline } from '@vicons/
 import { useSystemRoleStore } from '@/stores/system/role'
 import { useSystemUserStore } from '@/stores/system/user'
 import { useFrontendPagination } from '@/composables/useFrontendPagination'
+import { useMockBilingual } from '@/composables/useMockBilingual'
 import type { RoleRow } from '@/mock/system/role'
 
+const { pick, locale } = useMockBilingual()
 const roleStore = useSystemRoleStore()
 const userStore = useSystemUserStore()
 const { rows } = storeToRefs(roleStore)
@@ -33,7 +35,12 @@ const filtered = computed(() => {
   const q = keyword.value.trim()
   if (!q) return rows.value
   return rows.value.filter(
-    (r) => r.roleName.includes(q) || r.permKeys.includes(q) || (r.remark?.includes(q) ?? false),
+    (r) =>
+      r.roleName.includes(q) ||
+      (r.roleNameBo?.includes(q) ?? false) ||
+      r.permKeys.includes(q) ||
+      (r.remark?.includes(q) ?? false) ||
+      (r.remarkBo?.includes(q) ?? false),
   )
 })
 
@@ -93,7 +100,8 @@ function submitModal() {
       return
     }
     roleStore.update(id, payload)
-    userStore.syncRoleName(id, payload.roleName)
+    const r = rows.value.find((x) => x.id === id)
+    userStore.syncRoleName(id, r?.roleName ?? payload.roleName, r?.roleNameBo)
     message.success('已保存')
   }
   modalShow.value = false
@@ -107,7 +115,7 @@ function confirmDelete(row: RoleRow) {
   }
   dialog.warning({
     title: '确认删除',
-    content: `确定删除角色「${row.roleName}」？删除后不可恢复。`,
+    content: `确定删除角色「${pick(row.roleName, row.roleNameBo)}」？删除后不可恢复。`,
     positiveText: '确定删除',
     negativeText: '取消',
     onPositiveClick: () => {
@@ -117,8 +125,18 @@ function confirmDelete(row: RoleRow) {
   })
 }
 
-const columns = computed<DataTableColumns<RoleRow>>(() => [
-  { title: '角色名称', key: 'roleName', minWidth: 140, ellipsis: { tooltip: true } },
+const columns = computed((): DataTableColumns<RoleRow> => {
+  void locale.value
+  return [
+  {
+    title: '角色名称',
+    key: 'roleName',
+    minWidth: 140,
+    ellipsis: { tooltip: true },
+    render(row) {
+      return pick(row.roleName, row.roleNameBo)
+    },
+  },
   { title: '权限标识', key: 'permKeys', minWidth: 200, ellipsis: { tooltip: true } },
   {
     title: '备注',
@@ -126,7 +144,10 @@ const columns = computed<DataTableColumns<RoleRow>>(() => [
     minWidth: 160,
     ellipsis: { tooltip: true },
     render(row) {
-      return row.remark ?? '—'
+      const t = row.remark
+      const b = row.remarkBo
+      if (!t && !b) return '—'
+      return pick(t ?? '', b)
     },
   },
   {
@@ -170,7 +191,8 @@ const columns = computed<DataTableColumns<RoleRow>>(() => [
       )
     },
   },
-])
+]
+})
 
 function handleSearch() {
   //

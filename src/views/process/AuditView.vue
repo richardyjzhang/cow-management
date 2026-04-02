@@ -145,7 +145,7 @@ function confirmDelete(row: AuditRow) {
   })
 }
 
-const columns = computed<DataTableColumns<AuditRow>>(() => [
+const columns = computed((): DataTableColumns<AuditRow> => [
   { title: '业务类型', key: 'businessType', width: 110, ellipsis: { tooltip: true } },
   { title: '标题', key: 'title', minWidth: 180, ellipsis: { tooltip: true } },
   { title: '申请人', key: 'applicant', width: 110, ellipsis: { tooltip: true } },

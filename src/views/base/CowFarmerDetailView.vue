@@ -23,8 +23,10 @@ import { ArrowBackOutline, AddOutline, CreateOutline, TrashOutline } from '@vico
 import { useBaseFarmerStore } from '@/stores/base/farmer'
 import { useBaseCowStore } from '@/stores/base/cow'
 import { useFrontendPagination } from '@/composables/useFrontendPagination'
+import { useMockBilingual } from '@/composables/useMockBilingual'
 import type { CowRow } from '@/mock/base/cow'
 
+const { pick, locale } = useMockBilingual()
 const route = useRoute()
 const router = useRouter()
 const farmerStore = useBaseFarmerStore()
@@ -46,8 +48,11 @@ const filteredCows = computed(() => {
     (c) =>
       c.earTag.includes(q) ||
       c.breed.toLowerCase().includes(lower) ||
+      (c.breedBo?.includes(q) ?? false) ||
       c.source.toLowerCase().includes(lower) ||
-      (c.remark?.includes(q) ?? false),
+      (c.sourceBo?.includes(q) ?? false) ||
+      (c.remark?.includes(q) ?? false) ||
+      (c.remarkBo?.includes(q) ?? false),
   )
 })
 
@@ -58,13 +63,14 @@ watch(keyword, () => resetPage())
 const dialog = useDialog()
 const message = useMessage()
 
-const farmerSelectOptions = computed(() =>
-  farmers.value.map((f) => ({
-    label: `${f.headName}（${f.townshipName}·${f.villageName}）`,
+const farmerSelectOptions = computed(() => {
+  void locale.value
+  return farmers.value.map((f) => ({
+    label: `${pick(f.headName, f.headNameBo)}（${pick(f.townshipName, f.townshipNameBo)}·${pick(f.villageName, f.villageNameBo)}）`,
     value: f.id,
     headName: f.headName,
-  })),
-)
+  }))
+})
 
 const cowModalShow = ref(false)
 const cowModalMode = ref<'add' | 'edit'>('add')
@@ -134,6 +140,7 @@ function submitCowModal() {
   const payload = {
     farmerId: cowForm.value.farmerId,
     farmerName: fr.headName,
+    farmerNameBo: fr.headNameBo,
     earTag: cowForm.value.earTag.trim(),
     breed: cowForm.value.breed.trim(),
     sex: cowForm.value.sex,
@@ -167,21 +174,41 @@ function confirmDeleteCow(cow: CowRow) {
   })
 }
 
-function buildCowColumns(): DataTableColumns<CowRow> {
+function buildCowColumns(pickFn: (zh: string, bo?: string) => string): DataTableColumns<CowRow> {
   return [
     { title: '耳标号', key: 'earTag', width: 140 },
-    { title: '品种', key: 'breed', width: 120, ellipsis: { tooltip: true } },
+    {
+      title: '品种',
+      key: 'breed',
+      width: 120,
+      ellipsis: { tooltip: true },
+      render(row) {
+        return pickFn(row.breed, row.breedBo)
+      },
+    },
     {
       title: '性别',
       key: 'sex',
       width: 64,
       align: 'center',
       render(row) {
-        return h(NTag, { size: 'small', bordered: false, type: 'success' }, { default: () => row.sex })
+        return h(
+          NTag,
+          { size: 'small', bordered: false, type: 'success' },
+          { default: () => pickFn(row.sex, row.sexBo) },
+        )
       },
     },
     { title: '月龄', key: 'ageMonths', width: 72, align: 'center' },
-    { title: '来源', key: 'source', minWidth: 140, ellipsis: { tooltip: true } },
+    {
+      title: '来源',
+      key: 'source',
+      minWidth: 140,
+      ellipsis: { tooltip: true },
+      render(row) {
+        return pickFn(row.source, row.sourceBo)
+      },
+    },
     {
       title: '采购价(元)',
       key: 'purchasePrice',
@@ -215,7 +242,10 @@ function buildCowColumns(): DataTableColumns<CowRow> {
       minWidth: 120,
       ellipsis: { tooltip: true },
       render(row) {
-        return row.remark ?? '—'
+        const t = row.remark
+        const b = row.remarkBo
+        if (!t && !b) return '—'
+        return pickFn(t ?? '', b)
       },
     },
     {
@@ -262,7 +292,10 @@ function buildCowColumns(): DataTableColumns<CowRow> {
   ]
 }
 
-const columns = computed(() => buildCowColumns())
+const columns = computed(() => {
+  void locale.value
+  return buildCowColumns(pick)
+})
 
 function goBack() {
   router.push({ name: 'base-cow' })
@@ -278,11 +311,14 @@ function goBack() {
             <NIcon :component="ArrowBackOutline" />
           </template>
         </NButton>
-        <span>户内奶牛档案 · {{ farmer.headName }}</span>
+        <span>户内奶牛档案 · {{ pick(farmer.headName, farmer.headNameBo) }}</span>
       </NSpace>
     </template>
     <template #header-extra>
-      <span class="page-card__hint">{{ farmer.townshipName }} · {{ farmer.villageName }} · 共 {{ cowList.length }} 头</span>
+      <span class="page-card__hint"
+        >{{ pick(farmer.townshipName, farmer.townshipNameBo) }} ·
+        {{ pick(farmer.villageName, farmer.villageNameBo) }} · 共 {{ cowList.length }} 头</span
+      >
     </template>
 
     <div class="base-page base-page--table">

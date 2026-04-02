@@ -1,18 +1,41 @@
 /** 南木林县基础区划 mock：乡镇 → 行政村 两级；行政村下辖村民小组在列中展示 */
 
+import { mockRegionBoById } from './region-bo'
+
 export interface RegionRow {
   id: string
   code: string
   name: string
+  /** 藏文名称（演示），与 `name` 对应 */
+  nameBo?: string
   type: 'township' | 'village'
   /** 联系电话（村级联络方式，演示数据） */
   contact?: string
   /** 行政村：下辖村民小组名称，逗号分隔 */
   groupNames?: string
+  /** 村民小组藏文，与 `groupNames` 对应 */
+  groupNamesBo?: string
   children?: RegionRow[]
 }
 
-export const mockRegionTree: RegionRow[] = [
+function applyRegionBoPatches(rows: RegionRow[]): RegionRow[] {
+  return rows.map((r) => {
+    const p = mockRegionBoById[r.id]
+    const next: RegionRow = {
+      ...r,
+      ...(p
+        ? {
+            nameBo: p.nameBo,
+            ...(p.groupNamesBo ? { groupNamesBo: p.groupNamesBo } : {}),
+          }
+        : {}),
+    }
+    if (r.children?.length) next.children = applyRegionBoPatches(r.children)
+    return next
+  })
+}
+
+const mockRegionTreeZh: RegionRow[] = [
   {
     id: 'tw-nanmulin',
     code: '540221100',
@@ -293,3 +316,5 @@ export const mockRegionTree: RegionRow[] = [
     ],
   },
 ]
+
+export const mockRegionTree: RegionRow[] = applyRegionBoPatches(mockRegionTreeZh)

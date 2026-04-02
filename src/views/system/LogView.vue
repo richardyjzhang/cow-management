@@ -54,7 +54,7 @@ function confirmDelete(row: LogRow) {
   })
 }
 
-const columns = computed<DataTableColumns<LogRow>>(() => [
+const columns = computed((): DataTableColumns<LogRow> => [
   { title: '操作人', key: 'operator', width: 110, ellipsis: { tooltip: true } },
   { title: '模块', key: 'module', width: 120, ellipsis: { tooltip: true } },
   { title: '动作', key: 'action', width: 88 },

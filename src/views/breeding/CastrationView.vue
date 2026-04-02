@@ -166,7 +166,7 @@ function confirmDelete(row: CastrationRow) {
   })
 }
 
-const columns = computed<DataTableColumns<CastrationRow>>(() => [
+const columns = computed((): DataTableColumns<CastrationRow> => [
   { title: '耳标号', key: 'earTag', width: 140, ellipsis: { tooltip: true } },
   { title: '养殖户', key: 'farmerName', width: 110, ellipsis: { tooltip: true } },
   { title: '行政村', key: 'villageName', width: 110, ellipsis: { tooltip: true } },

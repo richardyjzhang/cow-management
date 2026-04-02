@@ -144,7 +144,7 @@ function confirmDelete(row: MatingRow) {
   })
 }
 
-const columns = computed<DataTableColumns<MatingRow>>(() => [
+const columns = computed((): DataTableColumns<MatingRow> => [
   { title: '耳标号', key: 'earTag', width: 140, ellipsis: { tooltip: true } },
   { title: '配种日期', key: 'mateDate', width: 120 },
   { title: '冻精/公牛', key: 'bullNo', minWidth: 160, ellipsis: { tooltip: true } },

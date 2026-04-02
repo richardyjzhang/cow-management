@@ -20,8 +20,12 @@ import {
 import { SearchOutline, AddOutline, CreateOutline, TrashOutline } from '@vicons/ionicons5'
 import { useProcessTaskStore } from '@/stores/process/task'
 import { useFrontendPagination } from '@/composables/useFrontendPagination'
+import { useLocaleEnum } from '@/composables/useLocaleEnum'
 import type { TaskRow, TaskStatus } from '@/mock/process/task'
+import { useI18n } from 'vue-i18n'
 
+const { t, locale } = useI18n()
+const { taskStatus, taskPriority } = useLocaleEnum()
 const taskStore = useProcessTaskStore()
 const { rows } = storeToRefs(taskStore)
 
@@ -49,12 +53,12 @@ const rowTotal = computed(() => filtered.value.length)
 const { pagination, resetPage } = useFrontendPagination(rowTotal)
 watch(keyword, () => resetPage())
 
-const statusOptions: { label: string; value: TaskStatus }[] = [
-  { label: '待办', value: '待办' },
-  { label: '进行中', value: '进行中' },
-  { label: '已完成', value: '已完成' },
-  { label: '已取消', value: '已取消' },
-]
+const statusOptions = computed((): { label: string; value: TaskStatus }[] => [
+  { label: taskStatus('待办'), value: '待办' },
+  { label: taskStatus('进行中'), value: '进行中' },
+  { label: taskStatus('已完成'), value: '已完成' },
+  { label: taskStatus('已取消'), value: '已取消' },
+])
 
 const modalShow = ref(false)
 const modalMode = ref<'add' | 'edit'>('add')
@@ -101,11 +105,11 @@ function openEdit(row: TaskRow) {
 
 function submitModal() {
   if (!form.value.title.trim() || !form.value.assignee.trim()) {
-    message.warning('请填写任务标题与责任人')
+    message.warning(t('task.msgTitleAssignee'))
     return
   }
   if (!form.value.dueDate) {
-    message.warning('请选择截止日期')
+    message.warning(t('task.msgDue'))
     return
   }
   const dueDate = new Date(form.value.dueDate).toISOString().slice(0, 10)
@@ -120,45 +124,62 @@ function submitModal() {
   }
   if (modalMode.value === 'add') {
     taskStore.add(payload)
-    message.success('已新增')
+    message.success(t('common.added'))
   } else if (editingId.value) {
     taskStore.update(editingId.value, payload)
-    message.success('已保存')
+    message.success(t('common.saved'))
   }
   modalShow.value = false
 }
 
 function confirmDelete(row: TaskRow) {
   dialog.warning({
-    title: '确认删除',
-    content: `确定删除任务「${row.title}」？删除后不可恢复。`,
-    positiveText: '确定删除',
-    negativeText: '取消',
+    title: t('common.confirmDeleteTitle'),
+    content: t('task.deleteContent', { title: row.title }),
+    positiveText: t('common.confirmDeleteOk'),
+    negativeText: t('common.cancel'),
     onPositiveClick: () => {
       taskStore.remove(row.id)
-      message.success('已删除')
+      message.success(t('common.deleted'))
     },
   })
 }
 
-const columns = computed<DataTableColumns<TaskRow>>(() => [
-  { title: '任务标题', key: 'title', minWidth: 180, ellipsis: { tooltip: true } },
-  { title: '类型', key: 'type', width: 100, ellipsis: { tooltip: true } },
-  { title: '责任人', key: 'assignee', width: 130, ellipsis: { tooltip: true } },
-  { title: '截止', key: 'dueDate', width: 120 },
-  { title: '优先级', key: 'priority', width: 88, align: 'center' },
-  { title: '状态', key: 'status', width: 90 },
+const columns = computed((): DataTableColumns<TaskRow> => {
+  void locale.value
+  return [
+  { title: t('common.taskTitle'), key: 'title', minWidth: 180, ellipsis: { tooltip: true } },
+  { title: t('common.type'), key: 'type', width: 100, ellipsis: { tooltip: true } },
+  { title: t('common.assignee'), key: 'assignee', width: 130, ellipsis: { tooltip: true } },
+  { title: t('common.dueShort'), key: 'dueDate', width: 120 },
   {
-    title: '备注',
+    title: t('common.priority'),
+    key: 'priority',
+    width: 88,
+    align: 'center',
+    render(row) {
+      return taskPriority(row.priority)
+    },
+  },
+  {
+    title: t('common.status'),
+    key: 'status',
+    width: 90,
+    render(row) {
+      return taskStatus(row.status)
+    },
+  },
+  {
+    title: t('common.remark'),
     key: 'remark',
     minWidth: 120,
     ellipsis: { tooltip: true },
     render(row) {
-      return row.remark ?? '—'
+      return row.remark ?? t('common.dash')
     },
   },
   {
-    title: '操作',
+    title: t('common.actions'),
     key: 'actions',
     width: 160,
     fixed: 'right',
@@ -177,7 +198,7 @@ const columns = computed<DataTableColumns<TaskRow>>(() => [
                 onClick: () => openEdit(row),
               },
               {
-                default: () => '编辑',
+                default: () => t('common.edit'),
                 icon: () => h(NIcon, null, { default: () => h(CreateOutline) }),
               },
             ),
@@ -189,7 +210,7 @@ const columns = computed<DataTableColumns<TaskRow>>(() => [
                 onClick: () => confirmDelete(row),
               },
               {
-                default: () => '删除',
+                default: () => t('common.delete'),
                 icon: () => h(NIcon, null, { default: () => h(TrashOutline) }),
               },
             ),
@@ -198,7 +219,8 @@ const columns = computed<DataTableColumns<TaskRow>>(() => [
       )
     },
   },
-])
+]
+})
 
 function handleSearch() {
   //
@@ -206,9 +228,9 @@ function handleSearch() {
 </script>
 
 <template>
-  <NCard class="page-card page-card--fill" title="任务管理" :bordered="false">
+  <NCard class="page-card page-card--fill" :title="t('task.pageTitle')" :bordered="false">
     <template #header-extra>
-      <span class="page-card__hint">项目任务分解与状态跟踪</span>
+      <span class="page-card__hint">{{ t('task.hint') }}</span>
     </template>
 
     <div class="base-page base-page--table">
@@ -216,7 +238,7 @@ function handleSearch() {
         <NInput
           v-model:value="keyword"
           clearable
-          placeholder="标题、类型、责任人、状态"
+          :placeholder="t('task.searchPh')"
           style="width: 16rem"
           @keyup.enter="handleSearch"
         />
@@ -224,13 +246,13 @@ function handleSearch() {
           <template #icon>
             <SearchOutline />
           </template>
-          搜索
+          {{ t('common.search') }}
         </NButton>
         <NButton type="primary" @click="openAdd">
           <template #icon>
             <AddOutline />
           </template>
-          新增
+          {{ t('common.add') }}
         </NButton>
       </div>
 
@@ -252,37 +274,37 @@ function handleSearch() {
     <NModal
       v-model:show="modalShow"
       preset="card"
-      :title="modalMode === 'add' ? '新增' : '编辑'"
+      :title="modalMode === 'add' ? t('common.add') : t('common.edit')"
       style="width: 28rem"
       :mask-closable="false"
     >
       <NForm label-placement="left" label-width="96">
-        <NFormItem label="标题">
-          <NInput v-model:value="form.title" placeholder="任务标题" />
+        <NFormItem :label="t('task.formTitle')">
+          <NInput v-model:value="form.title" :placeholder="t('task.phTitle')" />
         </NFormItem>
-        <NFormItem label="类型">
-          <NInput v-model:value="form.type" placeholder="如：防疫、补贴" />
+        <NFormItem :label="t('task.formType')">
+          <NInput v-model:value="form.type" :placeholder="t('task.phType')" />
         </NFormItem>
-        <NFormItem label="责任人">
-          <NInput v-model:value="form.assignee" placeholder="责任人/单位" />
+        <NFormItem :label="t('task.formAssignee')">
+          <NInput v-model:value="form.assignee" :placeholder="t('task.phAssignee')" />
         </NFormItem>
-        <NFormItem label="截止日期">
+        <NFormItem :label="t('task.formDue')">
           <NDatePicker v-model:value="form.dueDate" type="date" style="width: 100%" />
         </NFormItem>
-        <NFormItem label="优先级">
-          <NInput v-model:value="form.priority" placeholder="高 / 中 / 低" />
+        <NFormItem :label="t('task.formPriority')">
+          <NInput v-model:value="form.priority" :placeholder="t('task.phPriority')" />
         </NFormItem>
-        <NFormItem label="状态">
+        <NFormItem :label="t('task.formStatus')">
           <NSelect v-model:value="form.status" :options="statusOptions" />
         </NFormItem>
-        <NFormItem label="备注">
+        <NFormItem :label="t('task.formRemark')">
           <NInput v-model:value="form.remark" type="textarea" :autosize="{ minRows: 2, maxRows: 4 }" />
         </NFormItem>
       </NForm>
       <template #footer>
         <NSpace justify="end">
-          <NButton @click="modalShow = false">取消</NButton>
-          <NButton type="primary" @click="submitModal">确定</NButton>
+          <NButton @click="modalShow = false">{{ t('common.cancel') }}</NButton>
+          <NButton type="primary" @click="submitModal">{{ t('common.confirm') }}</NButton>
         </NSpace>
       </template>
     </NModal>

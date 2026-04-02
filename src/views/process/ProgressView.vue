@@ -136,7 +136,7 @@ function confirmDelete(row: ProgressRow) {
   })
 }
 
-const columns = computed<DataTableColumns<ProgressRow>>(() => [
+const columns = computed((): DataTableColumns<ProgressRow> => [
   { title: '项目名称', key: 'projectName', minWidth: 160, ellipsis: { tooltip: true } },
   { title: '阶段', key: 'phase', width: 120, ellipsis: { tooltip: true } },
   {

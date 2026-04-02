@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const verified = defineModel<boolean>({ default: false })
 
 const trackEl = ref<HTMLElement | null>(null)
@@ -68,13 +70,13 @@ defineExpose({ reset })
       v-if="!verified"
       class="absolute inset-0 flex items-center justify-center text-[13px] text-gray-400 pointer-events-none"
     >
-      向右滑动完成验证
+      {{ t('captcha.slideHint') }}
     </div>
     <div
       v-else
       class="absolute inset-0 flex items-center justify-center text-[13px] text-green-500 font-medium pointer-events-none"
     >
-      验证通过
+      {{ t('captcha.passed') }}
     </div>
 
     <div

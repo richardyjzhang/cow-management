@@ -25,9 +25,11 @@ import { useBaseRegionStore } from '@/stores/base/region'
 import { useBaseFarmerStore } from '@/stores/base/farmer'
 import { useBaseCowStore } from '@/stores/base/cow'
 import { useFrontendPagination } from '@/composables/useFrontendPagination'
+import { useMockBilingual } from '@/composables/useMockBilingual'
 import type { FarmerRow } from '@/mock/base/farmer'
 import type { CowRow } from '@/mock/base/cow'
 
+const { pick, locale } = useMockBilingual()
 const router = useRouter()
 const regionStore = useBaseRegionStore()
 const farmerStore = useBaseFarmerStore()
@@ -56,17 +58,23 @@ const filteredData = computed(() => {
   return tableData.value.filter((row) => {
     if (
       row.headName.includes(q) ||
+      (row.headNameBo?.includes(q) ?? false) ||
       row.phone.includes(q) ||
       row.villageName.includes(q) ||
-      row.townshipName.includes(q)
+      (row.villageNameBo?.includes(q) ?? false) ||
+      row.townshipName.includes(q) ||
+      (row.townshipNameBo?.includes(q) ?? false)
     )
       return true
     return row.cowList.some(
       (c) =>
         c.earTag.includes(q) ||
         c.breed.includes(q) ||
+        (c.breedBo?.includes(q) ?? false) ||
         (c.remark?.includes(q) ?? false) ||
-        c.source.toLowerCase().includes(lower),
+        (c.remarkBo?.includes(q) ?? false) ||
+        c.source.toLowerCase().includes(lower) ||
+        (c.sourceBo?.includes(q) ?? false),
     )
   })
 })
@@ -75,28 +83,37 @@ const rowTotal = computed(() => filteredData.value.length)
 const { pagination, resetPage } = useFrontendPagination(rowTotal)
 watch(keyword, () => resetPage())
 
-const villageFormOptions = computed(() =>
-  regionStore.listVillagesMeta().map((m) => ({
-    label: `${m.townshipName} / ${m.villageName}`,
+const villageFormOptions = computed(() => {
+  void locale.value
+  return regionStore.listVillagesMeta().map((m) => ({
+    label: `${pick(m.townshipName, m.townshipNameBo)} / ${pick(m.villageName, m.villageNameBo)}`,
     value: m.villageId,
     townshipName: m.townshipName,
     villageName: m.villageName,
-  })),
-)
+    townshipNameBo: m.townshipNameBo,
+    villageNameBo: m.villageNameBo,
+  }))
+})
 
-const farmerSelectOptions = computed(() =>
-  farmers.value.map((f) => ({
-    label: `${f.headName}（${f.townshipName}·${f.villageName}）`,
+const farmerSelectOptions = computed(() => {
+  void locale.value
+  return farmers.value.map((f) => ({
+    label: `${pick(f.headName, f.headNameBo)}（${pick(f.townshipName, f.townshipNameBo)}·${pick(f.villageName, f.villageNameBo)}）`,
     value: f.id,
     headName: f.headName,
-  })),
-)
+  }))
+})
 
 function resolveVillageMeta(vid: string) {
   const meta = villageFormOptions.value.find((o) => o.value === vid)
   return meta
-    ? { townshipName: meta.townshipName, villageName: meta.villageName }
-    : { townshipName: '', villageName: '' }
+    ? {
+        townshipName: meta.townshipName,
+        villageName: meta.villageName,
+        townshipNameBo: meta.townshipNameBo,
+        villageNameBo: meta.villageNameBo,
+      }
+    : { townshipName: '', villageName: '', townshipNameBo: undefined, villageNameBo: undefined }
 }
 
 /* —— 养殖户弹窗 —— */
@@ -150,7 +167,9 @@ function submitFarmerModal() {
     message.warning('请填写户主与联系电话')
     return
   }
-  const { townshipName, villageName } = resolveVillageMeta(farmerForm.value.villageSelect)
+  const { townshipName, villageName, townshipNameBo, villageNameBo } = resolveVillageMeta(
+    farmerForm.value.villageSelect,
+  )
   if (!townshipName) {
     message.warning('行政村数据无效')
     return
@@ -158,7 +177,9 @@ function submitFarmerModal() {
   const payload = {
     villageId: farmerForm.value.villageSelect,
     villageName,
+    villageNameBo,
     townshipName,
+    townshipNameBo,
     headName: farmerForm.value.headName.trim(),
     idCard: farmerForm.value.idCard.trim(),
     phone: farmerForm.value.phone.trim(),
@@ -182,8 +203,8 @@ function confirmDeleteFarmer(row: FarmerRow) {
     title: '确认删除',
     content:
       n > 0
-        ? `确定删除养殖户「${row.headName}」？将同步删除其名下 ${n} 头奶牛档案，且不可恢复。`
-        : `确定删除养殖户「${row.headName}」？删除后不可恢复。`,
+        ? `确定删除养殖户「${pick(row.headName, row.headNameBo)}」？将同步删除其名下 ${n} 头奶牛档案，且不可恢复。`
+        : `确定删除养殖户「${pick(row.headName, row.headNameBo)}」？删除后不可恢复。`,
     positiveText: '确定删除',
     negativeText: '取消',
     onPositiveClick: () => {
@@ -261,6 +282,7 @@ function submitCowModal() {
   const payload = {
     farmerId: cowForm.value.farmerId,
     farmerName: fr.headName,
+    farmerNameBo: fr.headNameBo,
     earTag: cowForm.value.earTag.trim(),
     breed: cowForm.value.breed.trim(),
     sex: cowForm.value.sex,
@@ -309,12 +331,17 @@ function confirmPickAdd() {
   else openCowModal('add')
 }
 
-const columns = computed<DataTableColumns<FarmerWithCows>>(() => [
+const columns = computed((): DataTableColumns<FarmerWithCows> => {
+  void locale.value
+  return [
   {
     title: '户主',
     key: 'headName',
     width: 100,
     ellipsis: { tooltip: true },
+    render(row) {
+      return pick(row.headName, row.headNameBo)
+    },
   },
   {
     title: '乡镇 / 村',
@@ -322,7 +349,7 @@ const columns = computed<DataTableColumns<FarmerWithCows>>(() => [
     minWidth: 180,
     ellipsis: { tooltip: true },
     render(row) {
-      return `${row.townshipName} · ${row.villageName}`
+      return `${pick(row.townshipName, row.townshipNameBo)} · ${pick(row.villageName, row.villageNameBo)}`
     },
   },
   { title: '联系电话', key: 'phone', width: 130 },
@@ -387,7 +414,8 @@ const columns = computed<DataTableColumns<FarmerWithCows>>(() => [
       )
     },
   },
-])
+]
+})
 
 function handleSearch() {
   //

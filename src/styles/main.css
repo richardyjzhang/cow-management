@@ -23,6 +23,16 @@
   --theme-primary-suppl: #5a8338;
 }
 
+:root[data-locale='bo'] {
+  font-family:
+    'Microsoft Himalaya',
+    'Noto Sans Tibetan',
+    'Jomolhari',
+    'Microsoft YaHei',
+    'PingFang SC',
+    sans-serif;
+}
+
 * {
   box-sizing: border-box;
 }

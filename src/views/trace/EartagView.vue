@@ -186,7 +186,7 @@ function confirmDelete(row: EartagRow) {
   })
 }
 
-const columns = computed<DataTableColumns<EartagRow>>(() => [
+const columns = computed((): DataTableColumns<EartagRow> => [
   { title: '耳标号', key: 'earTag', width: 150, ellipsis: { tooltip: true } },
   { title: '养殖户', key: 'farmerName', width: 110, ellipsis: { tooltip: true } },
   { title: '状态', key: 'status', width: 90 },

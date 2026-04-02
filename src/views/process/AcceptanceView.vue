@@ -145,7 +145,7 @@ function confirmDelete(row: AcceptanceRow) {
   })
 }
 
-const columns = computed<DataTableColumns<AcceptanceRow>>(() => [
+const columns = computed((): DataTableColumns<AcceptanceRow> => [
   { title: '物资名称', key: 'materialName', minWidth: 140, ellipsis: { tooltip: true } },
   { title: '规格', key: 'spec', width: 120, ellipsis: { tooltip: true } },
   {

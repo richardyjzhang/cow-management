@@ -34,9 +34,12 @@ export const useSystemUserStore = defineStore('systemUser', () => {
     return true
   }
 
-  function syncRoleName(roleId: string, roleName: string) {
+  function syncRoleName(roleId: string, roleName: string, roleNameBo?: string) {
     for (const u of rows.value) {
-      if (u.roleId === roleId) u.roleName = roleName
+      if (u.roleId === roleId) {
+        u.roleName = roleName
+        if (roleNameBo !== undefined) u.roleNameBo = roleNameBo
+      }
     }
   }
 

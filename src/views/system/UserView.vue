@@ -20,8 +20,10 @@ import { SearchOutline, AddOutline, CreateOutline, TrashOutline } from '@vicons/
 import { useSystemUserStore } from '@/stores/system/user'
 import { useSystemRoleStore } from '@/stores/system/role'
 import { useFrontendPagination } from '@/composables/useFrontendPagination'
+import { useMockBilingual } from '@/composables/useMockBilingual'
 import type { UserRow, UserStatus } from '@/mock/system/user'
 
+const { pick, locale } = useMockBilingual()
 const userStore = useSystemUserStore()
 const roleStore = useSystemRoleStore()
 const { rows } = storeToRefs(userStore)
@@ -38,7 +40,9 @@ const filtered = computed(() => {
     (r) =>
       r.username.includes(q) ||
       r.realName.includes(q) ||
+      (r.realNameBo?.includes(q) ?? false) ||
       r.roleName.includes(q) ||
+      (r.roleNameBo?.includes(q) ?? false) ||
       r.phone.includes(q) ||
       r.status.includes(q),
   )
@@ -48,9 +52,15 @@ const rowTotal = computed(() => filtered.value.length)
 const { pagination, resetPage } = useFrontendPagination(rowTotal)
 watch(keyword, () => resetPage())
 
-const roleOptions = computed(() =>
-  roles.value.map((r) => ({ label: r.roleName, value: r.id, roleName: r.roleName })),
-)
+const roleOptions = computed(() => {
+  void locale.value
+  return roles.value.map((r) => ({
+    label: pick(r.roleName, r.roleNameBo),
+    value: r.id,
+    roleName: r.roleName,
+    roleNameBo: r.roleNameBo,
+  }))
+})
 
 const statusOptions: { label: string; value: UserStatus }[] = [
   { label: '启用', value: '启用' },
@@ -68,9 +78,10 @@ const form = ref({
   status: '启用' as UserStatus,
 })
 
-function resolveRoleName(roleId: string | null) {
-  if (!roleId) return ''
-  return roleOptions.value.find((o) => o.value === roleId)?.roleName ?? ''
+function resolveRole(roleId: string | null) {
+  if (!roleId) return { roleName: '', roleNameBo: undefined as string | undefined }
+  const o = roleOptions.value.find((x) => x.value === roleId)
+  return o ? { roleName: o.roleName, roleNameBo: o.roleNameBo } : { roleName: '', roleNameBo: undefined }
 }
 
 function openAdd() {
@@ -112,7 +123,7 @@ function submitModal() {
     message.warning('请填写手机号')
     return
   }
-  const roleName = resolveRoleName(form.value.roleId)
+  const { roleName, roleNameBo } = resolveRole(form.value.roleId)
   if (!roleName) {
     message.warning('角色无效')
     return
@@ -122,6 +133,7 @@ function submitModal() {
     realName: form.value.realName.trim(),
     roleId: form.value.roleId,
     roleName,
+    roleNameBo,
     phone: form.value.phone.trim(),
     status: form.value.status,
     createdAt: new Date().toISOString().slice(0, 10),
@@ -153,7 +165,7 @@ function submitModal() {
 function confirmDelete(row: UserRow) {
   dialog.warning({
     title: '确认删除',
-    content: `确定删除用户「${row.realName}（${row.username}）」？删除后不可恢复。`,
+    content: `确定删除用户「${pick(row.realName, row.realNameBo)}（${row.username}）」？删除后不可恢复。`,
     positiveText: '确定删除',
     negativeText: '取消',
     onPositiveClick: () => {
@@ -163,10 +175,28 @@ function confirmDelete(row: UserRow) {
   })
 }
 
-const columns = computed<DataTableColumns<UserRow>>(() => [
+const columns = computed((): DataTableColumns<UserRow> => {
+  void locale.value
+  return [
   { title: '登录名', key: 'username', width: 120, ellipsis: { tooltip: true } },
-  { title: '姓名', key: 'realName', width: 110, ellipsis: { tooltip: true } },
-  { title: '角色', key: 'roleName', width: 130, ellipsis: { tooltip: true } },
+  {
+    title: '姓名',
+    key: 'realName',
+    width: 110,
+    ellipsis: { tooltip: true },
+    render(row) {
+      return pick(row.realName, row.realNameBo)
+    },
+  },
+  {
+    title: '角色',
+    key: 'roleName',
+    width: 130,
+    ellipsis: { tooltip: true },
+    render(row) {
+      return pick(row.roleName, row.roleNameBo)
+    },
+  },
   { title: '手机', key: 'phone', width: 130 },
   { title: '状态', key: 'status', width: 88 },
   { title: '创建日期', key: 'createdAt', width: 120 },
@@ -211,7 +241,8 @@ const columns = computed<DataTableColumns<UserRow>>(() => [
       )
     },
   },
-])
+]
+})
 
 function handleSearch() {
   //

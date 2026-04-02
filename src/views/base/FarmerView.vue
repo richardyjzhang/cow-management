@@ -22,8 +22,15 @@ import { useBaseRegionStore } from '@/stores/base/region'
 import { useBaseFarmerStore } from '@/stores/base/farmer'
 import { useBaseCowStore } from '@/stores/base/cow'
 import { useFrontendPagination } from '@/composables/useFrontendPagination'
+import { pickMockBilingual } from '@/composables/useMockBilingual'
+import type { AppLocale } from '@/i18n'
 import type { FarmerRow } from '@/mock/base/farmer'
+import { useI18n } from 'vue-i18n'
 
+const { t, locale } = useI18n()
+function pick(zh: string, bo?: string) {
+  return pickMockBilingual(locale.value as AppLocale, zh, bo)
+}
 const regionStore = useBaseRegionStore()
 const farmerStore = useBaseFarmerStore()
 const cowStore = useBaseCowStore()
@@ -37,32 +44,40 @@ const keyword = ref('')
 const townshipId = ref<string | null>(null)
 const villageId = ref<string | null>(null)
 
-const townshipOptions = computed(() =>
-  tree.value.map((t) => ({ label: t.name, value: t.id })),
-)
+const townshipOptions = computed(() => {
+  void locale.value
+  return tree.value.map((t) => ({ label: pick(t.name, t.nameBo), value: t.id }))
+})
 
 const villageOptions = computed(() => {
+  void locale.value
   if (townshipId.value) {
     const tw = tree.value.find((t) => t.id === townshipId.value)
-    return (tw?.children ?? []).map((v) => ({ label: v.name, value: v.id }))
+    return (tw?.children ?? []).map((v) => ({ label: pick(v.name, v.nameBo), value: v.id }))
   }
   const all: { label: string; value: string }[] = []
   for (const tw of tree.value) {
     for (const v of tw.children ?? []) {
-      all.push({ label: `${tw.name} / ${v.name}`, value: v.id })
+      all.push({
+        label: `${pick(tw.name, tw.nameBo)} / ${pick(v.name, v.nameBo)}`,
+        value: v.id,
+      })
     }
   }
   return all
 })
 
-const villageFormOptions = computed(() =>
-  regionStore.listVillagesMeta().map((m) => ({
-    label: `${m.townshipName} / ${m.villageName}`,
+const villageFormOptions = computed(() => {
+  void locale.value
+  return regionStore.listVillagesMeta().map((m) => ({
+    label: `${pick(m.townshipName, m.townshipNameBo)} / ${pick(m.villageName, m.villageNameBo)}`,
     value: m.villageId,
     townshipName: m.townshipName,
     villageName: m.villageName,
-  })),
-)
+    townshipNameBo: m.townshipNameBo,
+    villageNameBo: m.villageNameBo,
+  }))
+})
 
 watch(townshipId, () => {
   villageId.value = null
@@ -82,11 +97,15 @@ const filteredData = computed(() => {
   return rows.filter(
     (r) =>
       r.headName.includes(q) ||
+      (r.headNameBo?.includes(q) ?? false) ||
       r.phone.includes(q) ||
       r.idCard.includes(q) ||
       r.villageName.includes(q) ||
+      (r.villageNameBo?.includes(q) ?? false) ||
       r.townshipName.includes(q) ||
-      r.breedingCondition.toLowerCase().includes(lower),
+      (r.townshipNameBo?.includes(q) ?? false) ||
+      r.breedingCondition.toLowerCase().includes(lower) ||
+      (r.breedingConditionBo?.includes(q) ?? false),
   )
 })
 
@@ -110,8 +129,13 @@ const form = ref({
 function resolveVillageMeta(vid: string) {
   const meta = villageFormOptions.value.find((o) => o.value === vid)
   return meta
-    ? { townshipName: meta.townshipName, villageName: meta.villageName }
-    : { townshipName: '', villageName: '' }
+    ? {
+        townshipName: meta.townshipName,
+        villageName: meta.villageName,
+        townshipNameBo: meta.townshipNameBo,
+        villageNameBo: meta.villageNameBo,
+      }
+    : { townshipName: '', villageName: '', townshipNameBo: undefined, villageNameBo: undefined }
 }
 
 function openAdd() {
@@ -146,22 +170,26 @@ function openEdit(row: FarmerRow) {
 
 function submitModal() {
   if (!form.value.villageSelect) {
-    message.warning('请选择所属行政村')
+    message.warning(t('farmer.msgSelectVillage'))
     return
   }
   if (!form.value.headName.trim() || !form.value.phone.trim()) {
-    message.warning('请填写户主与联系电话')
+    message.warning(t('farmer.msgHeadPhone'))
     return
   }
-  const { townshipName, villageName } = resolveVillageMeta(form.value.villageSelect)
+  const { townshipName, villageName, townshipNameBo, villageNameBo } = resolveVillageMeta(
+    form.value.villageSelect,
+  )
   if (!townshipName) {
-    message.warning('行政村数据无效，请重新选择')
+    message.warning(t('farmer.msgInvalidVillage'))
     return
   }
   const payload = {
     villageId: form.value.villageSelect,
     villageName,
+    villageNameBo,
     townshipName,
+    townshipNameBo,
     headName: form.value.headName.trim(),
     idCard: form.value.idCard.trim(),
     phone: form.value.phone.trim(),
@@ -171,47 +199,77 @@ function submitModal() {
   }
   if (modalMode.value === 'add') {
     farmerStore.addFarmer(payload)
-    message.success('已新增养殖户')
+    message.success(t('farmer.msgAdded'))
   } else if (editingId.value) {
     farmerStore.updateFarmer(editingId.value, payload)
-    message.success('已保存')
+    message.success(t('common.saved'))
   }
   modalShow.value = false
 }
 
 function confirmDelete(row: FarmerRow) {
   const n = cowStore.countByFarmerId(row.id)
+  const name = pick(row.headName, row.headNameBo)
   dialog.warning({
-    title: '确认删除',
+    title: t('common.confirmDeleteTitle'),
     content:
       n > 0
-        ? `确定删除养殖户「${row.headName}」？将同步删除其名下 ${n} 头奶牛档案，且不可恢复。`
-        : `确定删除养殖户「${row.headName}」？删除后不可恢复。`,
-    positiveText: '确定删除',
-    negativeText: '取消',
+        ? t('farmer.deleteWithCows', { name, n })
+        : t('farmer.deletePlain', { name }),
+    positiveText: t('common.confirmDeleteOk'),
+    negativeText: t('common.cancel'),
     onPositiveClick: () => {
       farmerStore.removeFarmer(row.id)
-      message.success('已删除')
+      message.success(t('common.deleted'))
     },
   })
 }
 
-const columns = computed<DataTableColumns<FarmerRow>>(() => [
-  { title: '乡镇', key: 'townshipName', width: 110, ellipsis: { tooltip: true } },
-  { title: '行政村', key: 'villageName', width: 110, ellipsis: { tooltip: true } },
-  { title: '户主', key: 'headName', width: 100, ellipsis: { tooltip: true } },
-  { title: '身份证号', key: 'idCard', width: 180, ellipsis: { tooltip: true } },
-  { title: '联系电话', key: 'phone', width: 130 },
-  { title: '家庭人口', key: 'familySize', width: 88, align: 'center' },
-  { title: '劳动力', key: 'laborForce', width: 80, align: 'center' },
+const columns = computed((): DataTableColumns<FarmerRow> => {
+  void locale.value
+  return [
   {
-    title: '养殖条件',
+    title: t('common.township'),
+    key: 'townshipName',
+    width: 110,
+    ellipsis: { tooltip: true },
+    render(row) {
+      return pick(row.townshipName, row.townshipNameBo)
+    },
+  },
+  {
+    title: t('common.village'),
+    key: 'villageName',
+    width: 110,
+    ellipsis: { tooltip: true },
+    render(row) {
+      return pick(row.villageName, row.villageNameBo)
+    },
+  },
+  {
+    title: t('common.headName'),
+    key: 'headName',
+    width: 100,
+    ellipsis: { tooltip: true },
+    render(row) {
+      return pick(row.headName, row.headNameBo)
+    },
+  },
+  { title: t('common.idCard'), key: 'idCard', width: 180, ellipsis: { tooltip: true } },
+  { title: t('common.contactPhone'), key: 'phone', width: 130 },
+  { title: t('common.familySize'), key: 'familySize', width: 88, align: 'center' },
+  { title: t('common.laborForce'), key: 'laborForce', width: 80, align: 'center' },
+  {
+    title: t('common.breedingCondition'),
     key: 'breedingCondition',
     minWidth: 200,
     ellipsis: { tooltip: true },
+    render(row) {
+      return pick(row.breedingCondition, row.breedingConditionBo)
+    },
   },
   {
-    title: '操作',
+    title: t('common.actions'),
     key: 'actions',
     width: 160,
     fixed: 'right',
@@ -230,7 +288,7 @@ const columns = computed<DataTableColumns<FarmerRow>>(() => [
                 onClick: () => openEdit(row),
               },
               {
-                default: () => '编辑',
+                default: () => t('common.edit'),
                 icon: () => h(NIcon, null, { default: () => h(CreateOutline) }),
               },
             ),
@@ -242,7 +300,7 @@ const columns = computed<DataTableColumns<FarmerRow>>(() => [
                 onClick: () => confirmDelete(row),
               },
               {
-                default: () => '删除',
+                default: () => t('common.delete'),
                 icon: () => h(NIcon, null, { default: () => h(TrashOutline) }),
               },
             ),
@@ -251,7 +309,8 @@ const columns = computed<DataTableColumns<FarmerRow>>(() => [
       )
     },
   },
-])
+]
+})
 
 function handleSearch() {
   //
@@ -259,9 +318,9 @@ function handleSearch() {
 </script>
 
 <template>
-  <NCard class="page-card page-card--fill" title="养殖户管理" :bordered="false">
+  <NCard class="page-card page-card--fill" :title="t('farmer.pageTitle')" :bordered="false">
     <template #header-extra>
-      <span class="page-card__hint">行政村 → 养殖户 两级筛选（先选乡镇再选村）</span>
+      <span class="page-card__hint">{{ t('farmer.hint') }}</span>
     </template>
 
     <div class="base-page base-page--table">
@@ -269,14 +328,14 @@ function handleSearch() {
         <NSelect
           v-model:value="townshipId"
           clearable
-          placeholder="全部乡镇"
+          :placeholder="t('farmer.phAllTownship')"
           :options="townshipOptions"
           style="width: 11rem"
         />
         <NSelect
           v-model:value="villageId"
           clearable
-          placeholder="全部行政村"
+          :placeholder="t('farmer.phAllVillage')"
           filterable
           :options="villageOptions"
           style="width: 15rem"
@@ -284,7 +343,7 @@ function handleSearch() {
         <NInput
           v-model:value="keyword"
           clearable
-          placeholder="户主、电话、身份证、村名"
+          :placeholder="t('farmer.searchPh')"
           style="width: 16rem"
           @keyup.enter="handleSearch"
         />
@@ -292,13 +351,13 @@ function handleSearch() {
           <template #icon>
             <SearchOutline />
           </template>
-          搜索
+          {{ t('common.search') }}
         </NButton>
         <NButton type="primary" @click="openAdd">
           <template #icon>
             <AddOutline />
           </template>
-          新增
+          {{ t('common.add') }}
         </NButton>
       </div>
 
@@ -320,49 +379,49 @@ function handleSearch() {
     <NModal
       v-model:show="modalShow"
       preset="card"
-      :title="modalMode === 'add' ? '新增' : '编辑'"
+      :title="modalMode === 'add' ? t('common.add') : t('common.edit')"
       style="width: 28rem"
       :mask-closable="false"
     >
       <NForm label-placement="left" label-width="96">
-        <NFormItem label="行政村">
+        <NFormItem :label="t('common.village')">
           <NSelect
             v-model:value="form.villageSelect"
             filterable
-            placeholder="请选择行政村"
+            :placeholder="t('farmer.phSelectVillage')"
             :options="villageFormOptions"
             value-field="value"
             label-field="label"
           />
         </NFormItem>
-        <NFormItem label="户主">
-          <NInput v-model:value="form.headName" placeholder="户主姓名" />
+        <NFormItem :label="t('common.headName')">
+          <NInput v-model:value="form.headName" :placeholder="t('farmer.phHeadName')" />
         </NFormItem>
-        <NFormItem label="身份证号">
-          <NInput v-model:value="form.idCard" placeholder="身份证号码" />
+        <NFormItem :label="t('common.idCard')">
+          <NInput v-model:value="form.idCard" :placeholder="t('farmer.phIdCard')" />
         </NFormItem>
-        <NFormItem label="联系电话">
-          <NInput v-model:value="form.phone" placeholder="手机号" />
+        <NFormItem :label="t('common.contactPhone')">
+          <NInput v-model:value="form.phone" :placeholder="t('farmer.phMobile')" />
         </NFormItem>
-        <NFormItem label="家庭人口">
+        <NFormItem :label="t('common.familySize')">
           <NInputNumber v-model:value="form.familySize" :min="1" :max="30" style="width: 100%" />
         </NFormItem>
-        <NFormItem label="劳动力">
+        <NFormItem :label="t('common.laborForce')">
           <NInputNumber v-model:value="form.laborForce" :min="0" :max="30" style="width: 100%" />
         </NFormItem>
-        <NFormItem label="养殖条件">
+        <NFormItem :label="t('common.breedingCondition')">
           <NInput
             v-model:value="form.breedingCondition"
             type="textarea"
-            placeholder="棚圈、饲草、水源等"
+            :placeholder="t('farmer.phCondition')"
             :autosize="{ minRows: 2, maxRows: 5 }"
           />
         </NFormItem>
       </NForm>
       <template #footer>
         <NSpace justify="end">
-          <NButton @click="modalShow = false">取消</NButton>
-          <NButton type="primary" @click="submitModal">确定</NButton>
+          <NButton @click="modalShow = false">{{ t('common.cancel') }}</NButton>
+          <NButton type="primary" @click="submitModal">{{ t('common.confirm') }}</NButton>
         </NSpace>
       </template>
     </NModal>

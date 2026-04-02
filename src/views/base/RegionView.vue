@@ -24,8 +24,15 @@ import { SearchOutline, AddOutline, CreateOutline, TrashOutline } from '@vicons/
 import { useBaseRegionStore } from '@/stores/base/region'
 import { useBaseFarmerStore } from '@/stores/base/farmer'
 import { useFrontendPagination } from '@/composables/useFrontendPagination'
+import { pickMockBilingual } from '@/composables/useMockBilingual'
+import type { AppLocale } from '@/i18n'
 import type { RegionRow } from '@/mock/base/region'
+import { useI18n } from 'vue-i18n'
 
+const { t, locale } = useI18n()
+function pick(zh: string, bo?: string) {
+  return pickMockBilingual(locale.value as AppLocale, zh, bo)
+}
 const router = useRouter()
 const regionStore = useBaseRegionStore()
 const farmerStore = useBaseFarmerStore()
@@ -36,14 +43,20 @@ const message = useMessage()
 
 const keyword = ref('')
 
+function rowMatches(r: RegionRow, q: string, lower: string): boolean {
+  if (r.name.toLowerCase().includes(lower) || r.code.includes(q) || (r.contact?.includes(q) ?? false))
+    return true
+  if (r.nameBo?.includes(q)) return true
+  if (r.groupNames?.includes(q) || (r.groupNamesBo?.includes(q) ?? false)) return true
+  return false
+}
+
 function townshipMatchesKeyword(tw: RegionRow, q: string): boolean {
   if (!q.trim()) return true
   const lower = q.toLowerCase()
-  const match = (r: RegionRow) =>
-    r.name.toLowerCase().includes(lower) || r.code.includes(q) || (r.contact?.includes(q) ?? false)
-  if (match(tw)) return true
+  if (rowMatches(tw, q, lower)) return true
   for (const v of tw.children ?? []) {
-    if (match(v)) return true
+    if (rowMatches(v, q, lower)) return true
   }
   return false
 }
@@ -65,9 +78,10 @@ const parentTownshipId = ref<string | null>(null)
 const formTownship = ref({ name: '', code: '', contact: '' })
 const formVillage = ref({ name: '', code: '', contact: '', groupNames: '' })
 
-const townshipSelectOptions = computed(() =>
-  tree.value.map((t) => ({ label: t.name, value: t.id })),
-)
+const townshipSelectOptions = computed(() => {
+  void locale.value
+  return tree.value.map((t) => ({ label: pick(t.name, t.nameBo), value: t.id }))
+})
 
 watch(modalShow, (open) => {
   if (!open) {
@@ -110,7 +124,7 @@ function submitModal() {
   if (modalMode.value === 'add') {
     if (addKind.value === 'township') {
       if (!formTownship.value.name.trim() || !formTownship.value.code.trim()) {
-        message.warning('请填写乡镇名称与编码')
+        message.warning(t('region.msgFillTownship'))
         return
       }
       regionStore.addTownship({
@@ -118,14 +132,14 @@ function submitModal() {
         code: formTownship.value.code,
         contact: formTownship.value.contact,
       })
-      message.success('已新增乡镇')
+      message.success(t('region.msgSuccessTownship'))
     } else {
       if (!parentTownshipId.value) {
-        message.warning('请选择所属乡镇')
+        message.warning(t('region.msgSelectTownship'))
         return
       }
       if (!formVillage.value.name.trim() || !formVillage.value.code.trim()) {
-        message.warning('请填写行政村名称与编码')
+        message.warning(t('region.msgFillVillage'))
         return
       }
       regionStore.addVillage(parentTownshipId.value, {
@@ -134,7 +148,7 @@ function submitModal() {
         contact: formVillage.value.contact,
         groupNames: formVillage.value.groupNames,
       })
-      message.success('已新增行政村')
+      message.success(t('region.msgSuccessVillage'))
     }
   } else if (editId.value) {
     const id = editId.value
@@ -154,7 +168,7 @@ function submitModal() {
         groupNames: formVillage.value.groupNames,
       })
     }
-    message.success('已保存')
+    message.success(t('common.saved'))
   }
   modalShow.value = false
 }
@@ -162,50 +176,60 @@ function submitModal() {
 function confirmDelete(row: RegionRow) {
   const villageIds = regionStore.getVillageIdsUnder(row.id)
   if (farmerStore.hasFarmerInVillages(villageIds)) {
-    message.warning('该区划下仍有养殖户数据，请先在养殖户管理中处理后再删除')
+    message.warning(t('region.msgHasFarmers'))
     return
   }
-  const label = row.type === 'township' ? '乡镇及其下辖行政村' : '行政村'
+  const scope =
+    row.type === 'township' ? t('region.deleteScopeTownship') : t('region.deleteScopeVillage')
   dialog.warning({
-    title: '确认删除',
-    content: `确定删除该${label}「${row.name}」？删除后不可恢复。`,
-    positiveText: '确定删除',
-    negativeText: '取消',
+    title: t('common.confirmDeleteTitle'),
+    content: t('region.deleteContent', { scope, name: pick(row.name, row.nameBo) }),
+    positiveText: t('common.confirmDeleteOk'),
+    negativeText: t('common.cancel'),
     onPositiveClick: () => {
       regionStore.removeNode(row.id)
-      message.success('已删除')
+      message.success(t('common.deleted'))
     },
   })
 }
 
-const columns = computed<DataTableColumns<RegionRow>>(() => [
+const columns = computed((): DataTableColumns<RegionRow> => {
+  void locale.value
+  return [
   {
-    title: '乡镇名称',
+    title: t('common.townshipNameCol'),
     key: 'name',
     minWidth: 160,
     ellipsis: { tooltip: true },
+    render(row) {
+      return pick(row.name, row.nameBo)
+    },
   },
   {
-    title: '区划编码',
+    title: t('common.code'),
     key: 'code',
     width: 140,
   },
   {
-    title: '类型',
+    title: t('common.type'),
     key: 'type',
     width: 100,
     render() {
-      return h(NTag, { size: 'small', type: 'info', bordered: false }, { default: () => '乡镇' })
+      return h(
+        NTag,
+        { size: 'small', type: 'info', bordered: false },
+        { default: () => t('region.typeTownship') },
+      )
     },
   },
   {
-    title: '联系电话',
+    title: t('common.contactPhone'),
     key: 'contact',
     width: 140,
     ellipsis: { tooltip: true },
   },
   {
-    title: '行政村数',
+    title: t('common.villageCount'),
     key: 'vCnt',
     width: 100,
     align: 'center',
@@ -214,7 +238,7 @@ const columns = computed<DataTableColumns<RegionRow>>(() => [
     },
   },
   {
-    title: '操作',
+    title: t('common.actions'),
     key: 'actions',
     width: 220,
     fixed: 'right',
@@ -233,7 +257,7 @@ const columns = computed<DataTableColumns<RegionRow>>(() => [
                 onClick: () =>
                   router.push({ name: 'base-region-township', params: { townshipId: row.id } }),
               },
-              { default: () => '行政村' },
+              { default: () => t('common.villageManageBtn') },
             ),
             h(
               NButton,
@@ -244,7 +268,7 @@ const columns = computed<DataTableColumns<RegionRow>>(() => [
                 onClick: () => openEdit(row),
               },
               {
-                default: () => '编辑',
+                default: () => t('common.edit'),
                 icon: () => h(NIcon, null, { default: () => h(CreateOutline) }),
               },
             ),
@@ -256,7 +280,7 @@ const columns = computed<DataTableColumns<RegionRow>>(() => [
                 onClick: () => confirmDelete(row),
               },
               {
-                default: () => '删除',
+                default: () => t('common.delete'),
                 icon: () => h(NIcon, null, { default: () => h(TrashOutline) }),
               },
             ),
@@ -265,7 +289,8 @@ const columns = computed<DataTableColumns<RegionRow>>(() => [
       )
     },
   },
-])
+]
+})
 
 function handleSearch() {
   //
@@ -273,9 +298,9 @@ function handleSearch() {
 </script>
 
 <template>
-  <NCard class="page-card page-card--fill" title="区划管理" :bordered="false">
+  <NCard class="page-card page-card--fill" :title="t('region.pageTitle')" :bordered="false">
     <template #header-extra>
-      <span class="page-card__hint">日喀则市南木林县 · 乡镇列表；行政村请进入子页面维护</span>
+      <span class="page-card__hint">{{ t('region.hint') }}</span>
     </template>
 
     <div class="base-page base-page--table">
@@ -283,7 +308,7 @@ function handleSearch() {
         <NInput
           v-model:value="keyword"
           clearable
-          placeholder="搜索区划名称、编码、电话"
+          :placeholder="t('region.searchPh')"
           style="width: 16rem"
           @keyup.enter="handleSearch"
         />
@@ -291,13 +316,13 @@ function handleSearch() {
           <template #icon>
             <SearchOutline />
           </template>
-          搜索
+          {{ t('common.search') }}
         </NButton>
         <NButton type="primary" @click="openAdd">
           <template #icon>
             <AddOutline />
           </template>
-          新增
+          {{ t('common.add') }}
         </NButton>
       </div>
 
@@ -319,79 +344,79 @@ function handleSearch() {
     <NModal
       v-model:show="modalShow"
       preset="card"
-      :title="modalMode === 'add' ? '新增区划' : '编辑区划'"
+      :title="modalMode === 'add' ? t('region.modalAddTitle') : t('region.modalEditTitle')"
       style="width: 32rem"
       :mask-closable="false"
     >
       <NForm label-placement="left" label-width="96">
         <template v-if="modalMode === 'add'">
-          <NFormItem label="类型">
+          <NFormItem :label="t('region.formType')">
             <NRadioGroup v-model:value="addKind" name="addKind">
-              <NRadio value="township">乡镇</NRadio>
-              <NRadio value="village">行政村</NRadio>
+              <NRadio value="township">{{ t('region.typeTownship') }}</NRadio>
+              <NRadio value="village">{{ t('region.typeVillage') }}</NRadio>
             </NRadioGroup>
           </NFormItem>
           <template v-if="addKind === 'village'">
-            <NFormItem label="所属乡镇">
+            <NFormItem :label="t('region.formParentTownship')">
               <NSelect
                 v-model:value="parentTownshipId"
-                placeholder="请选择乡镇"
+                :placeholder="t('region.phSelectTownship')"
                 :options="townshipSelectOptions"
               />
             </NFormItem>
-            <NFormItem label="村名称">
-              <NInput v-model:value="formVillage.name" placeholder="行政村名称" />
+            <NFormItem :label="t('region.formVillageName')">
+              <NInput v-model:value="formVillage.name" :placeholder="t('region.phVillageName')" />
             </NFormItem>
-            <NFormItem label="村编码">
-              <NInput v-model:value="formVillage.code" placeholder="区划编码" />
+            <NFormItem :label="t('region.formVillageCode')">
+              <NInput v-model:value="formVillage.code" :placeholder="t('region.phVillageCode')" />
             </NFormItem>
-            <NFormItem label="联系电话">
-              <NInput v-model:value="formVillage.contact" placeholder="村级联络电话" />
+            <NFormItem :label="t('common.contactPhone')">
+              <NInput v-model:value="formVillage.contact" :placeholder="t('region.phVillageContact')" />
             </NFormItem>
-            <NFormItem label="村民小组">
+            <NFormItem :label="t('common.groupNames')">
               <NInput
                 v-model:value="formVillage.groupNames"
                 type="textarea"
-                placeholder="多个小组用逗号分隔"
+                :placeholder="t('region.phGroupNames')"
                 :autosize="{ minRows: 2, maxRows: 4 }"
               />
             </NFormItem>
           </template>
           <template v-else>
-            <NFormItem label="乡镇名称">
-              <NInput v-model:value="formTownship.name" placeholder="乡镇名称" />
+            <NFormItem :label="t('region.formTownshipName')">
+              <NInput v-model:value="formTownship.name" :placeholder="t('region.phTownshipName')" />
             </NFormItem>
-            <NFormItem label="乡镇编码">
-              <NInput v-model:value="formTownship.code" placeholder="区划编码" />
+            <NFormItem :label="t('region.formTownshipCode')">
+              <NInput v-model:value="formTownship.code" :placeholder="t('region.phTownshipCode')" />
             </NFormItem>
-            <NFormItem label="联系电话">
-              <NInput v-model:value="formTownship.contact" placeholder="乡镇办公电话" />
+            <NFormItem :label="t('common.contactPhone')">
+              <NInput v-model:value="formTownship.contact" :placeholder="t('region.phTownshipContact')" />
             </NFormItem>
           </template>
         </template>
         <template v-else>
           <template v-if="editRowType === 'township'">
-            <NFormItem label="乡镇名称">
+            <NFormItem :label="t('region.formTownshipName')">
               <NInput v-model:value="formTownship.name" />
             </NFormItem>
-            <NFormItem label="乡镇编码">
+            <NFormItem :label="t('region.formTownshipCode')">
               <NInput v-model:value="formTownship.code" />
             </NFormItem>
-            <NFormItem label="联系电话">
+            <NFormItem :label="t('common.contactPhone')">
               <NInput v-model:value="formTownship.contact" />
             </NFormItem>
           </template>
           <template v-else>
-            <NFormItem label="村名称">
+            <NFormItem :label="t('region.formVillageName')">
               <NInput v-model:value="formVillage.name" />
             </NFormItem>
-            <NFormItem label="村编码">
+            <NFormItem :label="t('region.formVillageCode')">
               <NInput v-model:value="formVillage.code" />
             </NFormItem>
-            <NFormItem label="联系电话">
+            <NFormItem :label="t('common.contactPhone')">
               <NInput v-model:value="formVillage.contact" />
             </NFormItem>
-            <NFormItem label="村民小组">
+            <NFormItem :label="t('common.groupNames')">
               <NInput
                 v-model:value="formVillage.groupNames"
                 type="textarea"
@@ -404,8 +429,8 @@ function handleSearch() {
 
       <template #footer>
         <NSpace justify="end">
-          <NButton @click="modalShow = false">取消</NButton>
-          <NButton type="primary" @click="submitModal">确定</NButton>
+          <NButton @click="modalShow = false">{{ t('common.cancel') }}</NButton>
+          <NButton type="primary" @click="submitModal">{{ t('common.confirm') }}</NButton>
         </NSpace>
       </template>
     </NModal>

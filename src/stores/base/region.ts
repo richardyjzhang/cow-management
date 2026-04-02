@@ -24,7 +24,13 @@ function findLocation(rows: RegionRow[], id: string, parent: RegionRow | null = 
   return null
 }
 
-export type VillageMeta = { villageId: string; villageName: string; townshipName: string }
+export type VillageMeta = {
+  villageId: string
+  villageName: string
+  townshipName: string
+  villageNameBo?: string
+  townshipNameBo?: string
+}
 
 function collectVillageIdsUnderTownship(node: RegionRow): string[] {
   if (node.type === 'village') return [node.id]
@@ -114,7 +120,13 @@ export const useBaseRegionStore = defineStore('baseRegion', () => {
       if (tw.type !== 'township') continue
       for (const v of tw.children ?? []) {
         if (v.type === 'village')
-          out.push({ villageId: v.id, villageName: v.name, townshipName: tw.name })
+          out.push({
+            villageId: v.id,
+            villageName: v.name,
+            townshipName: tw.name,
+            villageNameBo: v.nameBo,
+            townshipNameBo: tw.nameBo,
+          })
       }
     }
     return out

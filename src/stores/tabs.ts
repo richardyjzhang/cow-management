@@ -3,16 +3,17 @@ import { defineStore } from 'pinia'
 
 interface TabItem {
   path: string
-  title: string
+  /** vue-i18n 键 */
+  titleKey: string
 }
 
 export const useTabsStore = defineStore('tabs', () => {
   const tabs = ref<TabItem[]>([])
   const activeTab = ref('')
 
-  function addTab(path: string, title: string) {
+  function addTab(path: string, titleKey: string) {
     if (!tabs.value.some((t) => t.path === path)) {
-      tabs.value.push({ path, title })
+      tabs.value.push({ path, titleKey })
     }
     activeTab.value = path
   }

@@ -164,7 +164,7 @@ function confirmDelete(row: QrcodeRow) {
   })
 }
 
-const columns = computed<DataTableColumns<QrcodeRow>>(() => [
+const columns = computed((): DataTableColumns<QrcodeRow> => [
   { title: '耳标号', key: 'earTag', width: 140, ellipsis: { tooltip: true } },
   { title: '溯源码', key: 'traceCode', minWidth: 200, ellipsis: { tooltip: true } },
   { title: '签发日期', key: 'issueDate', width: 120 },

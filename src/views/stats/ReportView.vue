@@ -147,7 +147,7 @@ function handleGenerate(row: ReportRow) {
   message.success('已开始生成')
 }
 
-const columns = computed<DataTableColumns<ReportRow>>(() => [
+const columns = computed((): DataTableColumns<ReportRow> => [
   { title: '报表名称', key: 'name', minWidth: 180, ellipsis: { tooltip: true } },
   { title: '统计周期', key: 'period', width: 140, ellipsis: { tooltip: true } },
   { title: '格式', key: 'format', width: 88 },

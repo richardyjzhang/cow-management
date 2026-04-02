@@ -47,9 +47,12 @@ export const useBaseCowStore = defineStore('baseCow', () => {
     cows.value = cows.value.filter((c) => c.farmerId !== farmerId)
   }
 
-  function syncFarmerName(farmerId: string, farmerName: string) {
+  function syncFarmerName(farmerId: string, farmerName: string, farmerNameBo?: string) {
     for (const c of cows.value) {
-      if (c.farmerId === farmerId) c.farmerName = farmerName
+      if (c.farmerId === farmerId) {
+        c.farmerName = farmerName
+        if (farmerNameBo !== undefined) c.farmerNameBo = farmerNameBo
+      }
     }
   }
 

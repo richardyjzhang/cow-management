@@ -1,23 +1,26 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 
+const { t, locale } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const clock = ref('')
 
-const screenTabs = [
-  { path: '/screen/overview', label: '总览' },
-  { path: '/screen/breeding', label: '养殖' },
-  { path: '/screen/fund', label: '资金项目' },
-] as const
+const screenTabs = computed(() => [
+  { path: '/screen/overview', label: t('screenChrome.tabOverview') },
+  { path: '/screen/breeding', label: t('screenChrome.tabBreeding') },
+  { path: '/screen/fund', label: t('screenChrome.tabFund') },
+])
 
 const activePath = computed(() => route.path)
 
 let timer: ReturnType<typeof setInterval> | undefined
 
 function updateClock() {
-  clock.value = new Date().toLocaleString('zh-CN', {
+  const loc = locale.value === 'bo' ? 'bo-CN' : 'zh-CN'
+  clock.value = new Date().toLocaleString(loc, {
     year: 'numeric',
     month: '2-digit',
     day: '2-digit',
@@ -47,10 +50,10 @@ onUnmounted(() => {
     <header class="screen-root__header">
       <div class="screen-root__brand">
         <div class="screen-root__title-row">
-          <span class="screen-root__title">优质奶牛管理信息系统</span>
-          <span class="screen-root__tag">数据可视化大屏</span>
+          <span class="screen-root__title">{{ t('screenChrome.title') }}</span>
+          <span class="screen-root__tag">{{ t('screenChrome.tag') }}</span>
         </div>
-        <p class="screen-root__subtitle">关键指标 · 多源汇聚 · 演示数据与当前会话内数据一致</p>
+        <p class="screen-root__subtitle">{{ t('screenChrome.subtitle') }}</p>
       </div>
 
       <nav class="screen-root__tabs" aria-label="子屏切换">
@@ -67,7 +70,7 @@ onUnmounted(() => {
 
       <div class="screen-root__actions">
         <div class="screen-root__clock">{{ clock }}</div>
-        <button type="button" class="screen-root__back" @click="goBack">返回管理端</button>
+        <button type="button" class="screen-root__back" @click="goBack">{{ t('screenChrome.backToApp') }}</button>
       </div>
     </header>
     <main class="screen-root__main">

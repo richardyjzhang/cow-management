@@ -1,21 +1,28 @@
 /** 奶牛档案 mock：养殖户 → 奶牛 两级（通过 farmerId 关联） */
 
+import { mockCowBoById } from './cow-bo'
+
 export interface CowRow {
   id: string
   farmerId: string
   farmerName: string
+  farmerNameBo?: string
   earTag: string
   breed: string
+  breedBo?: string
   sex: '母' | '公'
+  sexBo?: string
   ageMonths: number
   source: string
+  sourceBo?: string
   purchasePrice: number
   subsidyAmount: number
   selfPaid: number
   remark?: string
+  remarkBo?: string
 }
 
-export const mockCows: CowRow[] = [
+const mockCowsZh: CowRow[] = [
   {
     id: 'cw-001',
     farmerId: 'fm-001',
@@ -213,3 +220,8 @@ export const mockCows: CowRow[] = [
     selfPaid: 10900,
   },
 ]
+
+export const mockCows: CowRow[] = mockCowsZh.map((r) => ({
+  ...r,
+  ...mockCowBoById[r.id],
+}))

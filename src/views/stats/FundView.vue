@@ -135,7 +135,7 @@ function formatAmount(n: number) {
   return n.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
-const columns = computed<DataTableColumns<FundRow>>(() => [
+const columns = computed((): DataTableColumns<FundRow> => [
   { title: '项目', key: 'projectName', minWidth: 160, ellipsis: { tooltip: true } },
   {
     title: '金额(元)',

@@ -11,7 +11,7 @@ function flattenRoutes(items: MenuItemConfig[]): RouteRecordRaw[] {
       routes.push({
         path: item.path,
         name: item.path.replace(/\//g, '-'),
-        meta: { title: item.label },
+        meta: { titleKey: item.titleKey },
         component: item.component,
       })
     }
@@ -34,7 +34,7 @@ const router = createRouter({
       path: '/screen',
       component: ScreenLayout,
       redirect: '/screen/overview',
-      meta: { title: '数据大屏' },
+      meta: { titleKey: 'route.screenData' },
       children: [
         {
           path: 'overview',
@@ -62,13 +62,13 @@ const router = createRouter({
         {
           path: 'base/cow/farmer/:farmerId',
           name: 'base-cow-farmer',
-          meta: { title: '户内奶牛档案' },
+          meta: { titleKey: 'route.cowFarmerDetail' },
           component: () => import('@/views/base/CowFarmerDetailView.vue'),
         },
         {
           path: 'base/region/township/:townshipId',
           name: 'base-region-township',
-          meta: { title: '行政村管理' },
+          meta: { titleKey: 'route.regionTownship' },
           component: () => import('@/views/base/RegionTownshipView.vue'),
         },
       ],
